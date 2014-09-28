@@ -21,7 +21,7 @@ proc init_canvas {area area_width area_height} {
      bind $c <KeyPress-f>              "resetView  $c   "
 
      # MMB move - platform dependent
-	 if {$::tcl_platform(os) eq "Linux" || $::tcl_platform(os) eq "Windows"} {
+	 if {[regexp "Linux" $::tcl_platform(os)] || [regexp "Windows" $::tcl_platform(os)]} {
     	bind $c <Button-2>                "set xc %x;  set yc %y" 
         bind $c <B2-Motion>               "moveItems  $c   %x %y"
      } else {
@@ -30,7 +30,7 @@ proc init_canvas {area area_width area_height} {
      }
 
      # MMB scroll zoom - platform dependent
-	 if {$::tcl_platform(os) eq "Linux"} {
+	 if {[regexp "Linux" $::tcl_platform(os)]} {
     	bind $c <Button-4>                "scaleItems $c  1"
         bind $c <Button-5>                "scaleItems $c -1"
      } else {
@@ -38,7 +38,7 @@ proc init_canvas {area area_width area_height} {
      }
 
 	 # RMB zoom - platform dependent
-	 if {$::tcl_platform(os) eq "Linux" || $::tcl_platform(os) eq "Windows"} {
+	 if {[regexp "Linux" $::tcl_platform(os)] || [regexp "Windows" $::tcl_platform(os)]} {
 	    bind $c <3>                       "zoomMark   $c   %x %y"
         bind $c <B3-Motion>               "zoomStroke $c   %x %y"
         bind $c <ButtonRelease-3>         "zoomArea   $c   %x %y"

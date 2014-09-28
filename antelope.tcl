@@ -23,8 +23,9 @@ if {$release} {
 
 proc init_antelope {} {
      verinfo
-	 if {$::tcl_platform(os) eq "Linux"} {
- 	    tclline
+	 if {[regexp "Linux" $::tcl_platform(os)]} {
+        puts ">> +++ Terminal enhancement feature is enabled."
+        tclline
         register_alias
         fileevent stdin readable tclline
         vwait forever
@@ -34,10 +35,15 @@ proc init_antelope {} {
 
 proc verinfo {} {
 	 set systemTime [clock seconds]
-	 puts ">> +++ \033\[1;93mAntelope Studio\033\[0m +++"
-	 puts ">> +++ \033\[1;91mVersion 0.1\033\[0m | Advanced Analyze System for Individual Inverstors | [clock format $systemTime -format {%D %H:%M:%S}]"
-	 puts ">> +++ Machine: $::tcl_platform(machine) | OS: $::tcl_platform(os) $::tcl_platform(osVersion) | Platform: $::tcl_platform(platform)"
-     if {$::tcl_platform(os) eq "Linux"} {puts ">> +++ Terminal enhancement feature is enabled."}
+     if {[regexp "Linux" $::tcl_platform(os)] || [regexp "OSX" $::tcl_platform(os)]} {
+	     puts ">> +++ \033\[1;93mAntelope Studio\033\[0m +++"
+	     puts ">> +++ \033\[1;91mVersion 0.1\033\[0m | Advanced Analyze System for Individual Inverstors | [clock format $systemTime -format {%D %H:%M:%S}]"
+	     puts ">> +++ Machine: $::tcl_platform(machine) | OS: $::tcl_platform(os) $::tcl_platform(osVersion) | Platform: $::tcl_platform(platform)"
+	 } else {
+	     puts ">> +++ Antelope Studio +++"
+	     puts ">> +++ Version 0.1 | Advanced Analyze System for Individual Inverstors | [clock format $systemTime -format {%D %H:%M:%S}]"
+	     puts ">> +++ Machine: $::tcl_platform(machine) | OS: $::tcl_platform(os) $::tcl_platform(osVersion) | Platform: $::tcl_platform(platform)"
+     }
 }
 
 proc register_alias {} {
