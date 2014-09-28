@@ -4,7 +4,6 @@ if {$::tcl_platform(os)=="Linux"} {
   # Use Tclx if available:
   catch {
       package require Tclx
-  
       # Prevent sigint from killing our shell:
       signal ignore SIGINT
   }
