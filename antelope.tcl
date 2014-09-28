@@ -10,8 +10,8 @@
 #############################################################################
 #lappend auto_path /home/saywhite/antelope/dev/packages
 
-set release true
-#set release false
+#set release true
+set release false
 
 if {$release} {
    package provide antelope 1.0
@@ -35,6 +35,7 @@ proc verinfo {} {
 	 puts ">> +++ [ESC]\[1;93mAntelope Studio[ESC]\[0m +++"
 	 puts ">> +++ [ESC]\[1;91mVersion 0.1[ESC]\[0m | Advanced Analyze System for Individual Inverstors | [clock format $systemTime -format {%D %H:%M:%S}]"
 	 puts ">> +++ Machine: $::tcl_platform(machine) | OS: $::tcl_platform(os) $::tcl_platform(osVersion) | Platform: $::tcl_platform(platform)"
+     if {$::tcl_platform(os) eq "Linux"} {puts ">> +++ Terminal enhancement feature is enabled."}
 }
 
 proc register_alias {} {

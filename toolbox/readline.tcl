@@ -1,6 +1,7 @@
 package provide toolbox 1.0
 
-# Use Tclx if available:
+if {$::tcl_platform(os)=="Linux"} {
+  # Use Tclx if available:
   catch {
       package require Tclx
   
@@ -713,3 +714,4 @@ package provide toolbox 1.0
       open_analyzer
   ]
 
+}

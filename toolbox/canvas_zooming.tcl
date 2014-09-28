@@ -16,16 +16,37 @@ proc init_canvas {area area_width area_height} {
 	 focus $c
 
      # Set up event bindings for canvas:
-	 bind $c <Button-2>                "set xc %x;  set yc %y" 
-     bind $c <B2-Motion>               "moveItems  $c   %x %y"
-     bind $c <Button-4>                "scaleItems $c + "
-     bind $c <Button-5>                "scaleItems $c - "
      bind $c <Control-KeyPress-plus>   "scaleItems $c + "
      bind $c <Control-KeyPress-minus>  "scaleItems $c - "
-	 bind $c <3>                       "zoomMark   $c   %x %y"
-     bind $c <B3-Motion>               "zoomStroke $c   %x %y"
-     bind $c <ButtonRelease-3>         "zoomArea   $c   %x %y"
      bind $c <KeyPress-f>              "resetView  $c   "
+
+     # MMB move - platform dependent
+	 if {$::tcl_platform(os) eq "Linux" || $::tcl_platform(os) eq "Windows"} {
+    	bind $c <Button-2>                "set xc %x;  set yc %y" 
+        bind $c <B2-Motion>               "moveItems  $c   %x %y"
+     } else {
+    	bind $c <Button-3>                "set xc %x;  set yc %y" 
+        bind $c <B3-Motion>               "moveItems  $c   %x %y"
+     }
+
+     # MMB scroll zoom - platform dependent
+	 if {$::tcl_platform(os) eq "Linux"} {
+    	bind $c <Button-4>                "scaleItems $c  1"
+        bind $c <Button-5>                "scaleItems $c -1"
+     } else {
+        bind $c <MouseWheel>              "scaleItems $c %D"
+     }
+
+	 # RMB zoom - platform dependent
+	 if {$::tcl_platform(os) eq "Linux" || $::tcl_platform(os) eq "Windows"} {
+	    bind $c <3>                       "zoomMark   $c   %x %y"
+        bind $c <B3-Motion>               "zoomStroke $c   %x %y"
+        bind $c <ButtonRelease-3>         "zoomArea   $c   %x %y"
+     } else {
+	    bind $c <2>                       "zoomMark   $c   %x %y"
+        bind $c <B2-Motion>               "zoomStroke $c   %x %y"
+        bind $c <ButtonRelease-2>         "zoomArea   $c   %x %y"
+     }
 }
 
 proc drawMarker {c x y} {
@@ -69,7 +90,7 @@ proc scaleItems {c type} {
  	 set xoffset_orig [expr ($orig_width -$width )/2.0] 
 	 set yoffset_orig [expr ($orig_height-$height)/2.0] 
 	 global scalefactor
-     if { $type eq "+" } {
+     if {[expr $type > 0]} {
 		 set scalefactor [expr $scalefactor*sqrt(2.0)]
          $c scale all [expr $orig_width/2.0] [expr $orig_height/2.0] [expr {sqrt(2.0)}] [expr {sqrt(2.0)}]
      } else {
