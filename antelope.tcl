@@ -8,9 +8,7 @@
 # Revisions:
 # Sept 09/21, 2014  initial revision 0.1   last modified by YoungY
 #############################################################################
-#lappend auto_path /home/saywhite/antelope/dev/packages
 
-#set release true
 set release false
 
 if {$release} {
@@ -31,6 +29,110 @@ proc init_antelope {} {
         vwait forever
         doExit
      }
+}
+
+proc open_analyzer {} {
+     package require Tk
+
+	 # set scheme/theme
+     ttk::setTheme clam
+
+	 # set window title
+	 wm title . "Antelope Studio"
+     
+	 # create notebook style menu bar
+	 create_notemenu
+
+     # create nested operation panel
+     create_op_panel
+}
+
+proc create_notemenu {} {
+	 # Notebook menubar
+     ttk::notebook .notemenu
+     ttk::notebook::enableTraversal .notemenu
+     pack .notemenu -side top -fill x -expand 1 -padx 0 -pady 0
+
+	 ## Populate file menu
+     ttk::frame .notemenu.file -padding 2 
+     .notemenu add .notemenu.file -text "File" -underline 0 -padding 2
+	 grid columnconfigure .notemenu.file {0 1} -weight 1 -uniform 1 -pad 10
+
+	 ttk::button .notemenu.file.open -text "Open" -underline 0 -width -1 
+     bind . <Alt-o> "focus .notemenu.file.open; .notemenu.file.open invoke"
+     grid .notemenu.file.open -padx {0 0} -sticky w
+     grid rowconfigure .notemenu.file 1 -weight 1
+
+	 ## Populate options pane
+	 ttk::frame .notemenu.options
+     .notemenu add .notemenu.options -text "Options" -underline 0 -padding 2
+
+	 ## Populate account profile pane
+	 ttk::frame .notemenu.profile
+     .notemenu add .notemenu.profile -text "Account Profile" -underline 0 -padding 2
+
+     ## Populate general market pane
+	 ttk::frame .notemenu.market
+     .notemenu add .notemenu.market -text "General Market" -underline 0 -padding 2
+
+	 ## Populate stock category pane
+	 ttk::frame .notemenu.category
+     .notemenu add .notemenu.category -text "Stock Category" -underline 0 -padding 2
+
+	 ## Populate short term pane
+	 ttk::frame .notemenu.shortterm
+     .notemenu add .notemenu.shortterm -text "Short Term" -underline 0 -padding 2
+
+	 ## Populate commodity pane
+	 ttk::frame .notemenu.commodity
+     .notemenu add .notemenu.commodity -text "Commodity" -underline 0 -padding 2
+
+	 ## Populate help pane
+	 ttk::frame .notemenu.help
+     .notemenu add .notemenu.help -text "Help" -underline 0 -padding 2
+}
+
+proc create_op_panel {} {
+     ttk::frame .op_panel 
+     pack .op_panel -fill both -expand 1 
+     set panels .op_panel
+     ttk::panedwindow $panels.outer -orient horizontal
+	 $panels.outer add [ttk::panedwindow $panels.outer.tool  -orient vertical -width 60   -height 1000] -weight 0
+	 $panels.outer add [ttk::panedwindow $panels.outer.chart -orient vertical -width 1280 -height 1000] -weight 1 
+     $panels.outer add [ttk::panedwindow $panels.outer.info  -orient vertical -width 400  -height 1000] -weight 0
+
+	 # fill the Tool pane
+     $panels.outer.tool add [ttk::labelframe $panels.outer.tool.title  -text "Tools" -labelanchor n]
+     ttk::button $panels.outer.tool.draw -text "Draw" -command {freeDraw .op_panel.sketchpad} -width -1
+     pack $panels.outer.tool.draw -padx 2 -pady 5 -in $panels.outer.tool.title
+
+	 # fill the Chart pane
+     set title [ttk::labelframe $panels.outer.chart.title -text "Stock Chart" -labelanchor n]
+     pack $title -fill x  
+	 init_canvas $panels.sketchpad 1280 1000 $panels.outer.chart.title
+	 
+     # fill the Information pane
+     $panels.outer.info add [ttk::labelframe $panels.outer.info.title -text "Information Panel" -labelanchor n]
+	 text $panels.txt -wrap word -yscroll "$panels.sb set" -width 30 -borderwidth 0
+     scrollbar $panels.sb -orient vertical -command "$panels.txt yview"
+     pack $panels.sb -side right -fill y -in $panels.outer.info.title
+     pack $panels.txt -fill both -expand 1 -in $panels.outer.info.title
+     pack $panels.outer -fill both -expand 1 -padx 10 -pady {6 10}
+}
+
+proc freeDraw {sketchpad} {
+     set ::color "black"
+	 # display pen location
+     bind $sketchpad <ButtonPress-1> {sketch_box_add .op_panel.sketchpad %x %y}
+	 bind $sketchpad <B1-Motion>     {sketch_box_add .op_panel.sketchpad %x %y}
+}
+
+proc sketch_box_add {sketchpad x y} {
+	 set x0 [expr $x-1]
+	 set x1 [expr $x+1]
+	 set y0 [expr $y-1]
+	 set y1 [expr $y+1]
+	 $sketchpad create rectangle $x0 $y0 $x1 $y1 -outline "" -fill $::color
 }
 
 proc verinfo {} {
@@ -57,104 +159,6 @@ proc source_opt {file} {
      if {info exists file} {
 		 source $file
      }
-}
-
-proc open_analyzer {} {
-     package require Tk
-#     package require BWidget
-
-	 global globalFont
-	 set globalFont [list -family system -size 9]
-
-	 # Window title
-     wm title . "Antelope Studio"
-
-	 # Menu Bar Frame
-	 frame .mbar -borderwidth 1 -relief raised 
-	 pack .mbar -fill x -side top
-	 topmenu_create .mbar left "File"            "Open Exit"
-	 topmenu_create .mbar left "Options"         "Open Exit"
-	 topmenu_create .mbar left "Account Profile" "Open Exit"
-	 topmenu_create .mbar left "General Market"  "Open Exit"
-	 topmenu_create .mbar left "Stock Category"  "Open Exit"
-	 topmenu_create .mbar left "Short Term"      "Open Exit"
-	 topmenu_create .mbar left "Commodity"       "Open Exit"
-	 topmenu_create .mbar left "Manual"          "Open Exit"
-
-	 # 2nd level menu bar
-     frame .style -borderwidth 1 -relief sunken -relief flat
-	 pack .style -fill x
-	 label .style.readout -text "x: 0.00 y: 0.00" -font "$globalFont" 
-	 pack .style.readout -side right
-
-	 cmenu_create .style.color "Color" {set ::color}
-     pack .style.color -side left  -ipadx 18 -ipady 2
-
-     cmenu_create .style.bg "Background" {.sketchpad configure -bg}
-	 pack .style.bg -side left  -ipadx 18 -ipady 2
-
-     # Info Panel Frame
-	 frame .infopanel -highlightthickness 0 -borderwidth 1 -relief flat -width 250 -bg white  
-
-	 # Tool Panel
-	 frame .toolpanel -highlightthickness 0 -borderwidth 1 -relief groove -width 40 -bg white  
-
-	 pack  .infopanel .toolpanel -fill y -side left 
-
-	 # Canvas
-	 init_canvas .sketchpad 1280 900
-     set ::color "black"
-
-	 # display pen location
-	 bind .sketchpad <Motion> {sketch_coords %x %y; drawMarker .sketchpad  %x %y}
-     bind .sketchpad <ButtonPress-1> {sketch_box_add %x %y}
-	 bind .sketchpad <B1-Motion>     {sketch_box_add %x %y}
-}
-
-# First Level Menu Bar
-proc topmenu_create {parent side item {options ""}} {
-	 global globalFont
-	 set text $item
-	 set item [string tolower $item]
-	 menubutton ${parent}.${item} -text $text -font "$globalFont" -underline 0 -menu ${parent}.${item}.m
-	 pack ${parent}.${item} -side $side -ipadx 18 -ipady 4
-	 menu ${parent}.${item}.m -tearoff 0
-	 foreach option $options {
-		  ${parent}.${item}.m add command -label $option -underline 0 -font "$globalFont"
-     }
-}
-
-# Secondary Menu
-
-# Color Menu
-proc cmenu_create {win title cmd} {
-	 global globalFont
-	 menubutton $win -text $title -font "$globalFont" -menu $win.m
-	 menu $win.m
-	 $win.m add command -label "Red"   -font "$globalFont" -command "$cmd red"
- 	 $win.m add command -label "Blue"  -font "$globalFont" -command "$cmd blue"
-	 $win.m add command -label "White" -font "$globalFont" -command "$cmd white"
-	 $win.m add command -label "Black" -font "$globalFont" -command "$cmd black"
-}
-
-proc sketch_coords {x y} {
-	 global globalFont
-     set size [winfo fpixels .sketchpad 1i]
-   	 set x [expr $x/$size]
-	 set y [expr $y/$size]
-     .style.readout configure -text [format "x: %6.2fi  y: %6.2fi" $x $y] -font "$globalFont" 
-}
-
-proc sketch_box_add {x y} {
-	 set x0 [expr $x-1]
-	 set x1 [expr $x+1]
-	 set y0 [expr $y-1]
-	 set y1 [expr $y+1]
-	 .sketchpad create rectangle $x0 $y0 $x1 $y1 -outline "" -fill $::color
-}
-
-proc draw_stock {} {
-     
 }
 
 init_antelope

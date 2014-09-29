@@ -1,7 +1,7 @@
 package provide toolbox 1.0
 
 # canvas initialization
-proc init_canvas {area area_width area_height} {
+proc init_canvas {area area_width area_height enclosure} {
      global xc yc xoffset yoffset scalefactor orig_width orig_height
 	 set xc 0
 	 set yc 0
@@ -12,41 +12,43 @@ proc init_canvas {area area_width area_height} {
 	 set orig_height $area_height
 
 	 set c [canvas $area -highlightthickness 0 -borderwidth 0 -width $area_width -height $area_height -background white] 
-	 pack $c -fill both -expand 1
+	 pack $c -fill both -expand 1 -in $enclosure
 	 focus $c
 
      # Set up event bindings for canvas:
-     bind $c <Control-KeyPress-plus>   "scaleItems $c + "
-     bind $c <Control-KeyPress-minus>  "scaleItems $c - "
-     bind $c <KeyPress-f>              "resetView  $c   "
+     bind $c <Control-KeyPress-plus>   "scaleItems $c + ; drawMarker $c  %x %y"
+     bind $c <Control-KeyPress-minus>  "scaleItems $c - ; drawMarker $c  %x %y"
+	 bind $c <Motion>                  "focus      $c   ; drawMarker $c  %x %y"
+     bind $c <KeyPress-f>              "resetView  $c   ; drawMarker $c  %x %y"
 
      # MMB move - platform dependent
 	 if {[regexp "Linux" $::tcl_platform(os)] || [regexp "Windows" $::tcl_platform(os)]} {
-    	bind $c <Button-2>                "set xc %x;  set yc %y" 
-        bind $c <B2-Motion>               "moveItems  $c   %x %y"
+    	bind $c <Button-2>                "set xc %x;  set yc %y; drawMarker $c  %x %y" 
+        bind $c <B2-Motion>               "moveItems  $c   %x %y; drawMarker $c  %x %y"
      } else {
-    	bind $c <Button-3>                "set xc %x;  set yc %y" 
-        bind $c <B3-Motion>               "moveItems  $c   %x %y"
+    	bind $c <Button-3>                "set xc %x;  set yc %y; drawMarker $c  %x %y" 
+        bind $c <B3-Motion>               "moveItems  $c   %x %y; drawMarker $c  %x %y"
      }
 
      # MMB scroll zoom - platform dependent
 	 if {[regexp "Linux" $::tcl_platform(os)]} {
-    	bind $c <Button-4>                "scaleItems $c  1"
-        bind $c <Button-5>                "scaleItems $c -1"
+    	bind $c <Button-4>                "scaleItems $c  1; drawMarker $c  %x %y"
+        bind $c <Button-5>                "scaleItems $c -1; drawMarker $c  %x %y"
      } else {
-        bind $c <MouseWheel>              "scaleItems $c %D"
+        bind $c <MouseWheel>              "scaleItems $c %D; drawMarker $c  %x %y"
      }
 
 	 # RMB zoom - platform dependent
 	 if {[regexp "Linux" $::tcl_platform(os)] || [regexp "Windows" $::tcl_platform(os)]} {
-	    bind $c <3>                       "zoomMark   $c   %x %y"
-        bind $c <B3-Motion>               "zoomStroke $c   %x %y"
-        bind $c <ButtonRelease-3>         "zoomArea   $c   %x %y"
+	    bind $c <3>                       "zoomMark   $c   %x %y; drawMarker $c  %x %y"
+        bind $c <B3-Motion>               "zoomStroke $c   %x %y; drawMarker $c  %x %y"
+        bind $c <ButtonRelease-3>         "zoomArea   $c   %x %y; drawMarker $c  %x %y"
      } else {
-	    bind $c <2>                       "zoomMark   $c   %x %y"
-        bind $c <B2-Motion>               "zoomStroke $c   %x %y"
-        bind $c <ButtonRelease-2>         "zoomArea   $c   %x %y"
+	    bind $c <2>                       "zoomMark   $c   %x %y; drawMarker $c  %x %y"
+        bind $c <B2-Motion>               "zoomStroke $c   %x %y; drawMarker $c  %x %y"
+        bind $c <ButtonRelease-2>         "zoomArea   $c   %x %y; drawMarker $c  %x %y"
      }
+	 return $c
 }
 
 proc drawMarker {c x y} {
