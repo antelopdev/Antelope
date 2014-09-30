@@ -20,6 +20,8 @@ proc init_canvas {area area_width area_height enclosure} {
      bind $c <Control-KeyPress-minus>  "scaleItems $c - ; drawMarker $c  %x %y"
 	 bind $c <Motion>                  "focus      $c   ; drawMarker $c  %x %y"
      bind $c <KeyPress-f>              "resetView  $c   ; drawMarker $c  %x %y"
+     bind $c <ButtonPress-1>           "sketch_box_add  $c %x %y"
+	 bind $c <B1-Motion>               "sketch_box_add  $c %x %y"
 
      # MMB move - platform dependent
 	 if {[regexp "Linux" $::tcl_platform(os)] || [regexp "Windows" $::tcl_platform(os)]} {
@@ -178,4 +180,15 @@ proc zoomArea {c x y} {
 	$c scale all [expr $width/2.0] [expr $height/2.0] [expr 1.0*$factor] [expr 1.0*$factor]
 	set scalefactor $factor
 }
+
+proc sketch_box_add {c x y} {
+	 set x0 [expr $x-1]
+	 set x1 [expr $x+1]
+	 set y0 [expr $y-1]
+	 set y1 [expr $y+1]
+	 if {$::enable_draw} {
+	    $c create rectangle $x0 $y0 $x1 $y1 -outline "" -fill "black"
+     }  
+}
+
 
