@@ -35,9 +35,14 @@ proc init_antelope {} {
 proc open_analyzer {} {
      package require Tk
 
-	 # set scheme/theme
-     ttk::setTheme clam
-     #ttk::setTheme default
+	 # set scheme/theme depending on platform
+     if {[regexp "Linux" $::tcl_platform(os)]} {
+  	    ttk::setTheme clam
+     } elseif {[regexp "Windows" $::tcl_platform(os)]} {
+  	    ttk::setTheme xpnative
+     } else {
+       	ttk::setTheme aqua
+     }
 
      # global variables
 	 set ::enable_draw false
