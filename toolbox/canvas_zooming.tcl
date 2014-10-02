@@ -50,6 +50,12 @@ proc init_canvas {area area_width area_height enclosure} {
         bind $c <B2-Motion>               "zoomStroke $c   %x %y; drawMarker $c  %x %y"
         bind $c <ButtonRelease-2>         "zoomArea   $c   %x %y; drawMarker $c  %x %y"
      }
+
+     # generate rulers and meshes
+     ruler_gen $c horizontal 0 128
+	 ruler_gen $c vertical 0 100
+     mesh_gen  $c 20.0 1920 1080 
+
 	 return $c
 }
 
@@ -58,8 +64,10 @@ proc drawMarker {c x y} {
      set height [winfo height $c]
      $c delete verticalMarker
 	 $c delete horizontalMarker
+	 $c delete coordMarker
 	 $c create line $x 0 $x $height -width 1 -dash {,} -fill red -tag verticalMarker
 	 $c create line  0 $y $width $y -width 1 -dash {,} -fill red -tag horizontalMarker
+     $c create text $x $y -text [format " Date - 20141001\n \[Price - %.1f / Volume - %.1f\]" $x $y] -fill blue -anchor sw -tag coordMarker  
 }
 
 proc resetView {c} {
@@ -98,10 +106,12 @@ proc scaleItems {c type} {
 		 set scalefactor [expr $scalefactor*sqrt(2.0)]
          $c scale all [expr $orig_width/2.0] [expr $orig_height/2.0] [expr {sqrt(2.0)}] [expr {sqrt(2.0)}]
      } else {
+	   if {[expr $scalefactor >= sqrt(2.0)]} {
 		 set scalefactor [expr $scalefactor/sqrt(2.0)]
          $c scale all [expr $orig_width/2.0] [expr $orig_height/2.0] [expr {1.0/sqrt(2.0)}] [expr {1.0/sqrt(2.0)}]
+	   }
      } 
-	 $c move all [expr -$xoffset_orig] [expr -$yoffset_orig]
+	 #$c move all [expr -$xoffset_orig] [expr -$yoffset_orig]
  	 set orig_width  $width
 	 set orig_height $height
 }
@@ -191,4 +201,22 @@ proc sketch_box_add {c x y} {
      }  
 }
 
+proc ruler_gen {c orient start end} {
+
+}
+
+proc mesh_gen {c granularity width height} {
+ 	 set h_range [expr $width/$granularity]
+	 set v_range [expr $height/$granularity]
+	 # vertical stripes
+	 for {set i 0} {$i < 3 * $h_range} {incr i} {
+         set x [expr {$i * $granularity} - $width]
+         $c create line $x -$height $x [expr 2*$height] -width 0.1 -fill #cccccc
+     }
+	 # horizontal stripes
+	 for {set j 0} {$j < 3 * $v_range} {incr j} {
+         set y [expr {$j * $granularity} - $height]
+         $c create line -$width $y [expr 2*$width] $y -width 0.1 -fill #cccccc
+     }
+}
 

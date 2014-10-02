@@ -2,6 +2,16 @@ package provide toolbox 1.0
 
 proc init_info_panel {panel enclosure} {
      ttk::frame $panel
+
+     ## search bar
+	 # fill the Tool pane
+	 ttk::frame $panel.search 
+     ttk::labelframe $panel.search.title -text "Search" -labelanchor nw
+	 ttk::entry $panel.search.text -justify left -textvariable search_text 
+	 pack $panel.search.title -side top -fill both -expand 1 
+	 pack $panel.search.text  -side top -fill both -expand 1 -padx 2 -pady 5 -in $panel.search.title
+     pack $panel.search -side top -fill both -expand 0
+
      ## Create the tree and set it up
      ttk::treeview $panel.tree -columns {fullpath type size} -displaycolumns {size} \
      	-yscroll "$panel.vsb set" -xscroll "$panel.hsb set"
@@ -16,7 +26,7 @@ proc init_info_panel {panel enclosure} {
      
      ## Arrange the tree and its scrollbars in the toplevel
      lower [ttk::frame $panel.dummy]
-     pack $panel.dummy -fill both -expand 1
+     pack $panel.dummy -side top -fill both -expand 1
      grid $panel.tree $panel.vsb -sticky nsew -in $panel.dummy
      grid $panel.hsb -sticky nsew -in $panel.dummy
      grid columnconfigure $panel.dummy 0 -weight 1
