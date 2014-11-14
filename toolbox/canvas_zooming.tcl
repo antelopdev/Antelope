@@ -65,9 +65,24 @@ proc drawMarker {c x y} {
      $c delete verticalMarker
 	 $c delete horizontalMarker
 	 $c delete coordMarker
-	 $c create line $x 0 $x $height -width 1 -dash {,} -fill red -tag verticalMarker
-	 $c create line  0 $y $width $y -width 1 -dash {,} -fill red -tag horizontalMarker
+	 $c create line $x 0 $x $height -width 0.1 -fill red -tag verticalMarker
+	 $c create line  0 $y $width $y -width 0.1 -fill red -tag horizontalMarker
      $c create text $x $y -text [format " Date - 20141001\n \[Price - %.1f / Volume - %.1f\]" $x $y] -fill blue -anchor sw -tag coordMarker  
+}
+
+proc mesh_gen {c granularity width height} {
+ 	 set h_range [expr $width/$granularity]
+	 set v_range [expr $height/$granularity]
+	 # vertical stripes
+	 for {set i 0} {$i < 3 * $h_range} {incr i} {
+         set x [expr {$i * $granularity} - $width]
+         $c create line $x -$height $x [expr 2*$height] -width 0.1 -dash {.} -fill #cccccc
+     }
+	 # horizontal stripes
+	 for {set j 0} {$j < 3 * $v_range} {incr j} {
+         set y [expr {$j * $granularity} - $height]
+         $c create line -$width $y [expr 2*$width] $y -width 0.1 -dash {.} -fill #cccccc
+     }
 }
 
 proc resetView {c} {
@@ -203,20 +218,5 @@ proc sketch_box_add {c x y} {
 
 proc ruler_gen {c orient start end} {
 
-}
-
-proc mesh_gen {c granularity width height} {
- 	 set h_range [expr $width/$granularity]
-	 set v_range [expr $height/$granularity]
-	 # vertical stripes
-	 for {set i 0} {$i < 3 * $h_range} {incr i} {
-         set x [expr {$i * $granularity} - $width]
-         $c create line $x -$height $x [expr 2*$height] -width 0.1 -fill #cccccc
-     }
-	 # horizontal stripes
-	 for {set j 0} {$j < 3 * $v_range} {incr j} {
-         set y [expr {$j * $granularity} - $height]
-         $c create line -$width $y [expr 2*$width] $y -width 0.1 -fill #cccccc
-     }
 }
 
