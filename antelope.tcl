@@ -30,15 +30,16 @@ proc init_antelope {} {
         vwait forever
         doExit
      }
+}
+
+proc open_analyzer {} {
      # Variables
      set current_date [clock format [clock seconds] -format {%Y %m %d}]
      set ::date_year  [lindex $current_date 0]
      set ::date_month [lindex $current_date 1]
      set ::date_day   [lindex $current_date 2]
-}
 
-proc open_analyzer {} {
-     package require Tk
+ 	 package require Tk
 
      wm withdraw .
 
