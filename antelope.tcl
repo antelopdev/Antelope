@@ -45,6 +45,7 @@ proc open_analyzer {} {
 
      catch {destroy .antelope}
 	 toplevel .antelope 
+     wm title     .antelope "Antelope Studio"
 
 	 # set scheme/theme depending on platform
      if {[regexp "Linux" $::tcl_platform(os)]} {
@@ -59,8 +60,8 @@ proc open_analyzer {} {
      # global variables
 	 set ::enable_draw false
 
-	 # set window title
-	 wm title .antelope "Antelope Studio"
+	 # create status bar
+	 create_statusbar .antelope
 
 	 # create notebook style menu bar
 	 create_notemenu .antelope
@@ -69,6 +70,14 @@ proc open_analyzer {} {
      create_op_panel .antelope
 
 	 .antelope.notemenu select 2
+}
+
+proc create_statusbar {w} {
+     set ::status "% Analyzer"
+     ttk::frame $w.statusBar
+     label $w.statusBar.label -textvariable status -relief sunken -bd 1 -font "\"\" 9" -anchor w
+     pack $w.statusBar.label -side left -padx 2 -expand yes -fill both
+     pack $w.statusBar -side bottom -fill x -pady 2
 }
 
 proc create_notemenu {w} {
@@ -168,7 +177,11 @@ proc create_op_panel {w} {
 	 ## Chart pane
      ttk::frame $panels.main.chart -padding 2 
      $panels.main add $panels.main.chart -text " Chart " -underline 1 -padding 2 
-	 init_canvas $panels.sketchpad 1280 1000 $panels.main.chart
+
+	 set canvas_handle [init_canvas $panels 1000 1000 $panels.main.chart]
+     set ::c   [lindex $canvas_handle 0]
+	 set ::TR  [lindex $canvas_handle 1]
+	 set ::PVR [lindex $canvas_handle 2]
 
      # fill the Information pane
      $panels.outer.info add [ttk::labelframe $panels.outer.info.title -text "| Information Panel |" -labelanchor n]
