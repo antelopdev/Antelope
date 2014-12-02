@@ -69,6 +69,13 @@ proc open_analyzer {} {
      # create nested operation panel
      create_op_panel .antelope
 
+	 #update
+     #set width  [winfo width $::PC]
+	 #set height [winfo height $::PC]
+     #TR_gen $::TR $width
+     #PR_gen $::PR $height
+     #VR_gen $::VR $height
+	 #mesh_gen $::PC 20.0 $width $height 
 	 .antelope.notemenu select 2
 }
 
@@ -179,9 +186,11 @@ proc create_op_panel {w} {
      $panels.main add $panels.main.chart -text " Chart " -underline 1 -padding 2 
 
 	 set canvas_handle [init_canvas $panels 1000 1000 $panels.main.chart]
-     set ::c   [lindex $canvas_handle 0]
-	 set ::TR  [lindex $canvas_handle 1]
-	 set ::PVR [lindex $canvas_handle 2]
+     set ::PC [lindex $canvas_handle 0]
+     set ::VC [lindex $canvas_handle 1]
+	 set ::TR [lindex $canvas_handle 2]
+	 set ::PR [lindex $canvas_handle 3]
+ 	 set ::VR [lindex $canvas_handle 4]
 
      # fill the Information pane
      $panels.outer.info add [ttk::labelframe $panels.outer.info.title -text "| Information Panel |" -labelanchor n]

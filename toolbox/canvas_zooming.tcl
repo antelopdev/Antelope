@@ -2,16 +2,19 @@ package provide toolbox 1.0
 
 # canvas initialization
 proc init_canvas {area area_width area_height enclosure} {
-     global xc yc xoffset yoffset scalefactor orig_width orig_height pv_ratio h_margin
+     global xc yc xoffset yoffset scalefactor scalefactor_PR orig_width orig_height pv_ratio h_margin
+	 global enable_snap
 	 set xc 0
 	 set yc 0
 	 set xoffset 0.0
 	 set yoffset 0.0
 	 set scalefactor 1.0
+	 set scalefactor_PR 1.0
      set orig_width  $area_width
 	 set orig_height $area_height
      set pv_ratio [expr 3.8/5.0]
 	 set h_margin 59
+     set enable_snap 1
 
      # place holder
    	 set PH [canvas $area.placeholder -highlightthickness 0 -borderwidth 0 -width [expr $h_margin+1] -height 12 -background white] 
@@ -43,7 +46,7 @@ proc init_canvas {area area_width area_height enclosure} {
      bind $PC <Control-KeyPress-plus>   "scaleItems $PC $VC $TR 1 ; drawMarker $PC  %x %y"
      bind $PC <Control-KeyPress-minus>  "scaleItems $PC $VC $TR -1 ; drawMarker $PC  %x %y"
 	 bind $PC <Motion>                  "focus      $PC   ; drawMarker $PC  %x %y"
-     bind $PC <KeyPress-f>              "resetView  $PC $VC $TR $PR $VR 1; drawMarker $PC  %x %y"
+     bind $PC <KeyPress-f>              "resetView  $PC $VC $TR $PR $VR; drawMarker $PC  %x %y"
      bind $PC <ButtonPress-1>           "sketch_box_add  $PC %x %y"
 	 bind $PC <B1-Motion>               "sketch_box_add  $PC %x %y"
 
@@ -60,6 +63,8 @@ proc init_canvas {area area_width area_height enclosure} {
 	 if {[regexp "Linux" $::tcl_platform(os)]} {
     	bind $PC <Button-4>                "scaleItems $PC $VC $TR 1; drawMarker $PC  %x %y"
         bind $PC <Button-5>                "scaleItems $PC $VC $TR -1; drawMarker $PC  %x %y"
+    	bind $PR <Button-4>                "scaleItems_PR $PC $PR 1"
+        bind $PR <Button-5>                "scaleItems_PR $PC $PR -1"
      } else {
         bind $PC <MouseWheel>              "scaleItems $PC $VC $TR %D; drawMarker $PC  %x %y"
      }
@@ -75,13 +80,12 @@ proc init_canvas {area area_width area_height enclosure} {
         bind $PC <ButtonRelease-2>         "zoomArea   $PC $VC $TR $PR $VR %x %y; drawMarker $PC  %x %y"
      }
 
-   	 bind $PC <Configure> "TR_bordergen $TR %w; TR_gen $TR %w; \
-	                       PR_bordergen $PR %h; PR_gen $PR %h; \
-						   VR_bordergen $VR %h; VR_gen $VR %h; \
+   	 bind $PC <Configure> "TR_bordergen $TR %w; TR_gen $TR %w;\
+	                       PR_bordergen $PR %h; PR_gen $PR %h;\
+						   VR_bordergen $VR %h; VR_gen $VR %h;\
 						   VC_bordergen $VC %w; \
-                           mesh_gen  $PC 20.0 %w %h; \
+						   mesh_gen $PC 14.0 %w %h; \
 						   drawMarker $PC %x %y"
-
      # generate rulers and meshes
 	 return [list $PC $VC $TR $PR $VR]
 }
@@ -93,44 +97,78 @@ proc drawChart {c} {
 }
 
 proc drawMarker {c x y} {
-     set width  [winfo width $c]
+     global enable_snap
+	 set width  [winfo width $c]
      set height [winfo height $c]
      $c delete verticalMarker
 	 $c delete horizontalMarker
 	 $c delete coordMarker
+     if {$enable_snap} {
+	    set radius 5.5
+	    set cross [$c find overlapping [expr $x-$radius] [expr $y-$radius] [expr $x+$radius] [expr $y+$radius]]
+        set snap_x ""
+	    set snap_y ""
+	    foreach item $cross {
+	        if {[$c itemcget $item -tag] == "verticalMeshLine" } {
+                #puts [$c itemcget $item -tag]
+	       	 set bbox [$c coords $item]
+	       	 set snap_x [lindex $bbox 0]
+            }
+	        if {[$c itemcget $item -tag] == "horizontalMeshLine" } {
+                #puts [$c itemcget $item -tag]
+	       	 set bbox [$c coords $item]
+	       	 set snap_y [lindex $bbox 1]
+            }
+        }
+	    $c delete CrossZone
+	    if {$snap_x!=""&&$snap_y!=""} {
+	       $c conf -cursor {none}
+	       #$c create rectangle [expr $snap_x-$radius] [expr $snap_y-$radius] [expr $snap_x+$radius] [expr $snap_y+$radius] -tag CrossZone
+           $c create line [expr ceil($snap_x-$radius-3)] [expr ($snap_y-3)] [expr ($snap_x-3)] [expr ($snap_y-3)] [expr ($snap_x-3)] [expr ceil($snap_y-$radius-3)] -fill blue -tag CrossZone
+           $c create line [expr ceil($snap_x+$radius+3)] [expr ($snap_y-3)] [expr ($snap_x+3)] [expr ($snap_y-3)] [expr ($snap_x+3)] [expr ceil($snap_y-$radius-3)] -fill blue -tag CrossZone 
+           $c create line [expr ceil($snap_x-$radius-3)] [expr ($snap_y+3)] [expr ($snap_x-3)] [expr ($snap_y+3)] [expr ($snap_x-3)] [expr ceil($snap_y+$radius+3)] -fill blue -tag CrossZone 
+           $c create line [expr ceil($snap_x+$radius+3)] [expr ($snap_y+3)] [expr ($snap_x+3)] [expr ($snap_y+3)] [expr ($snap_x+3)] [expr ceil($snap_y+$radius+3)] -fill blue -tag CrossZone 
+	       set x $snap_x
+	       set y $snap_y
+        } else {
+	       $c conf -cursor ""
+        }
+     }
 	 $c create line $x 0 $x $height -width 0.1 -fill red -tag verticalMarker
 	 $c create line  0 $y $width $y -width 0.1 -fill red -tag horizontalMarker
-     $c create text $x $y -text [format " Date - 20141001\n \[Price - %.1f / Volume - %.1f\]" $x $y] -fill blue -anchor sw -tag coordMarker 
+     #$c create text $x $y -text [format " Date - 20141001\n \[Price - %.1f / Volume - %.1f\]" $x $y] -fill blue -anchor nw -tag coordMarker 
 }
 
 proc mesh_gen {c granularity width height} {
-     set pos_x [expr $width/2]
-	 set pos_y [expr $height/2]
+     set pos_x 600
+	 set pos_y 360
 
-	 global xoffset yoffset scalefactor
-	 $c delete MeshLine
+	 global xoffset yoffset scalefactor scalefactor_PR
+	 $c delete verticalMeshLine
+	 $c delete horizontalMeshLine
+
      # vertical stripes
-	 set segment    [expr $granularity*$scalefactor]
-	 set amount     [expr int($width/$segment)]
-	 set cnt_offset [expr int(floor($xoffset*$scalefactor/$segment))]
-	 for {set cnt [expr -$amount+$cnt_offset]} {$cnt < [expr 2*$amount+$cnt_offset]} {incr cnt} {
-	     set x [expr $xoffset*$scalefactor+$pos_x-$cnt*$segment]
-		 if {![expr $cnt%5]} {
-	        $c create line $x 0 $x $height -width 1 -fill #cccccc -tag MeshLine
+	 set vsegment    [expr $granularity*$scalefactor]
+	 set vamount     [expr int($width/$vsegment)]
+	 set vcnt_offset [expr int(floor($xoffset*$scalefactor/$vsegment))]
+	 for {set vcnt [expr -$vamount+$vcnt_offset]} {$vcnt < [expr 2*$vamount+$vcnt_offset]} {incr vcnt} {
+	     set x [expr $xoffset*$scalefactor+$pos_x-$vcnt*$vsegment]
+		 if {![expr $vcnt%13]} {
+	        $c create line $x 0 $x $height -width 1 -fill #cccccc -tag verticalMeshLine
 	     } else {
-            $c create line $x 0 $x $height -width 1 -dash {.} -fill #cccccc -tag MeshLine
+            $c create line $x 0 $x $height -width 1 -dash {.} -fill #cccccc -tag verticalMeshLine
 	     }
      }
 	 # horizontal stripes
-	 set segment    [expr $granularity]
-	 set amount     [expr int($height/$segment)]
-	 set cnt_offset [expr int(floor($yoffset/$segment))]
-	 for {set cnt [expr -$amount+$cnt_offset]} {$cnt < [expr 2*$amount+$cnt_offset]} {incr cnt} {
-		 set y [expr $yoffset+$pos_y-$cnt*$segment]
-         if {![expr $cnt%5]} {
-	        $c create line 0 $y $width $y -width 1 -dash {.} -fill #cccccc -tag MeshLine
+	 set hsegment    [expr $granularity*$scalefactor_PR]
+	 set hamount     [expr int($height/$hsegment)]
+	 set hcnt_offset [expr int(floor($yoffset*$scalefactor_PR/$hsegment))]
+	 for {set hcnt [expr -$hamount+$hcnt_offset]} {$hcnt < [expr 2*$hamount+$hcnt_offset]} {incr hcnt} {
+		 set y [expr $yoffset*$scalefactor_PR+$pos_y-($hcnt+1)*$hsegment]
+         if {![expr $hcnt%5]} {
+	        $c create line 0 $y $width $y -width 1 -dash {.} -fill #cccccc -tag horizontalMeshLine
 		 } else {
-	        $c create line 0 $y $width $y -width 1 -dash {.} -fill #cccccc -tag MeshLine
+	        $c create line 0 $y $width $y -width 1 -dash {.} -fill #cccccc -tag horizontalMeshLine
 	     }
      }
 }
@@ -142,10 +180,10 @@ proc TR_bordergen {c width} {
 }
 
 proc TR_gen {c width} {
-	 set pos   [expr $width/2]
+	 set pos   600
 	 global xoffset scalefactor
 	 $c delete TimeLine
-	 set segment    [expr 100.0*$scalefactor]
+	 set segment    [expr 13*14*$scalefactor]
 	 set amount     [expr int($width/$segment)]
 	 set cnt_offset [expr int(floor($xoffset*$scalefactor/$segment))]
 	 for {set cnt [expr -$amount+$cnt_offset]} {$cnt < [expr 2*$amount+$cnt_offset]} {incr cnt} {
@@ -181,18 +219,19 @@ proc VC_bordergen {c width} {
 # Price Ruler can be scaled and moved vertically
 proc PR_gen {c height} {
      global h_margin
-	 global yoffset 
+	 global yoffset
+	 global scalefactor_PR
 	 #disable scale for now
-	 set scalefactor 1.0 
+	 set scalefactor $scalefactor_PR 
 
-	 set price_pos [expr $height/2.0]
+	 set price_pos 360
 	 $c delete PriceLine
 	 set segment    [expr 100.0*$scalefactor]
      set delta      [expr $segment/10.0]
 	 set amount     [expr int($height/$segment)]
 	 set cnt_offset [expr int(floor($yoffset*$scalefactor/$segment))]
 	 for {set cnt [expr -$amount+$cnt_offset]} {$cnt < [expr 2*$amount+$cnt_offset]} {incr cnt} {
-		 set y_pos [expr $yoffset*$scalefactor+$price_pos-$cnt*$segment-$segment/2.0]
+		 set y_pos [expr $yoffset*$scalefactor+$price_pos-($cnt+1)*$segment]
          if {[expr $y_pos>16]} {
 		    $c create line [expr $h_margin*2.0/3.0 + 5] $y_pos $h_margin $y_pos -width 1 -fill blue -tag PriceLine
 		    $c create text [expr $h_margin*2.0/3.0] $y_pos -text [expr 100+10*$cnt] -anchor e -font {"" 8} -tag PriceLine
@@ -215,7 +254,7 @@ proc VR_gen {c height} {
 
 	 set height [expr $height/$pv_ratio*(1-$pv_ratio)]
 
-	 set volume_pos [expr $height/2.0]
+	 set volume_pos 300
 	 $c delete VolumeLine
 	 set segment    [expr 100.0*$scalefactor]
      set delta      [expr $segment/2.0]
@@ -254,40 +293,39 @@ proc Calc_Quarter {cnt} {
 	 return "$year $quarter"
 }
 
-proc resetView {c VC TR PR VR ruler_rst} {
+proc resetView {c VC TR PR VR} {
 	 global orig_width orig_height
      set width  [winfo width $c]
      set height [winfo height $c]
 	 set xoffset_orig [expr ($orig_width -$width )/2.0] 
 	 set yoffset_orig [expr ($orig_height-$height)/2.0] 
-     global xoffset yoffset scalefactor
-     $c  scale all [expr $orig_width/2.0] [expr $orig_height/2.0] [expr 1.0/$scalefactor] 1.0
+     global xoffset yoffset scalefactor scalefactor_PR
+     $c  scale all [expr $orig_width/2.0] [expr $orig_height/2.0] [expr 1.0/$scalefactor] [expr 1.0/$scalefactor_PR]
 	 $c  move all  [expr -$xoffset-$xoffset_orig] [expr -$yoffset-$yoffset_orig] 
-	 if {$ruler_rst} {
-	    set xoffset 0.0
-	    set yoffset 0.0
-	    set scalefactor 1.0
-	    set orig_width  $width
-	    set orig_height $height
-        TR_gen $TR $width
-        PR_gen $PR $height
-        VR_gen $VR $height
-		mesh_gen $c 20.0 $width $height
-     }
+	 set xoffset 0.0
+	 set yoffset 0.0
+	 set scalefactor 1.0
+	 set scalefactor_PR 1.0
+	 set orig_width  $width
+	 set orig_height $height
+     TR_gen $TR $width
+     PR_gen $PR $height
+     VR_gen $VR $height
+	 mesh_gen $c 14.0 $width $height
 }
 
 proc moveItems {c VC TR PR x y } {
      set width [winfo width $c]
 	 set height [winfo height $c]
-	 global xc yc xoffset yoffset scalefactor
+	 global xc yc xoffset yoffset scalefactor scalefactor_PR
 	 $c move all [expr {$x-$xc}] [expr {$y-$yc}]
 	 set xoffset [expr $xoffset + ($x-$xc)/$scalefactor]
-	 set yoffset [expr $yoffset + ($y-$yc)]
+	 set yoffset [expr $yoffset + ($y-$yc)/$scalefactor_PR]
 	 set xc $x
      set yc $y
      TR_gen $TR $width
      PR_gen $PR $height
-	 mesh_gen $c 20.0 $width $height
+	 mesh_gen $c 14.0 $width $height
 }
 
 proc scaleItems {c VC TR type} {
@@ -311,7 +349,29 @@ proc scaleItems {c VC TR type} {
  	 set orig_width  $width
 	 set orig_height $height
      TR_gen $TR $width
-	 mesh_gen $c 20.0 $width $height
+	 mesh_gen $c 14.0 $width $height
+}
+
+proc scaleItems_PR {c PR type} {
+	 global orig_width orig_height
+     set width  [winfo width $c]
+     set height [winfo height $c]
+	 global scalefactor_PR
+     if {[expr $type > 0]} {
+         if {[expr $scalefactor_PR <= pow(sqrt(2.0),4)]} {
+		    set scalefactor_PR [expr $scalefactor_PR*sqrt(2.0)]
+            $c scale all [expr $orig_width/2.0] [expr $orig_height/2.0] 1.0 [expr {sqrt(2.0)}] 
+         }
+       } else {
+	     if {[expr $scalefactor_PR >= sqrt(2.0)]} {
+		    set scalefactor_PR [expr $scalefactor_PR/sqrt(2.0)]
+            $c scale all [expr $orig_width/2.0] [expr $orig_height/2.0] 1.0 [expr {1.0/sqrt(2.0)}] 
+	     }
+     } 
+ 	 set orig_width  $width
+	 set orig_height $height
+	 PR_gen $PR $height
+	 mesh_gen $c 14.0 $width $height
 }
 
 proc zoomMark {c x y} {
@@ -329,7 +389,7 @@ proc zoomStroke {c x y} {
 }
 
 proc zoomArea {c VC TR PR VR x y} {
-    global zoomArea scalefactor xc yc xoffset yoffset 
+    global zoomArea scalefactor scalefactor_PR xc yc xoffset yoffset 
 
     #--------------------------------------------------------
     #  Get the final coordinates.
@@ -370,29 +430,36 @@ proc zoomArea {c VC TR PR VR x y} {
     #  Calculate scale factors, and choose smaller
     #--------------------------------------------------------
     set xscale [expr {1.0*$width/$areaxlength}]
-#    set yscale [expr {1.0*$height/$areaylength}]
+    set yscale [expr {1.0*$height/$areaylength}]
 #    if { $xscale > $yscale } {
 #        set factor $yscale
 #    } else {
 #        set factor $xscale
 #    }
-	set factor $xscale
-    set factor [expr $factor*$scalefactor]
-    if {[expr $factor > pow(sqrt(2.0),7)]} {
-		 set factor [expr pow(sqrt(2.0),7)]
+    set xfactor [expr $xscale*$scalefactor]
+    set yfactor [expr $yscale*$scalefactor]
+
+    if {[expr $xfactor > pow(sqrt(2.0),7)]} {
+		 set xfactor [expr pow(sqrt(2.0),7)]
+    }
+    if {[expr $yfactor > pow(sqrt(2.0),5)]} {
+		 set yfactor [expr pow(sqrt(2.0),5)]
     }
 
     #--------------------------------------------------------
     #  Perform zoom operation
     #--------------------------------------------------------
 	set xc [expr ($xcenter-$width /2.0)/$scalefactor-$xoffset]
-	set yc [expr ($ycenter-$height/2.0)-$yoffset]
-	resetView $c $VC $TR $PR $VR 0
-    $c move all [expr -$xc] 0
-	$c scale all [expr $width/2.0] [expr $height/2.0] [expr 1.0*$factor] 1.0
-	set scalefactor $factor
+	set yc [expr ($ycenter-$height/2.0)/$scalefactor_PR-$yoffset]
+	resetView $c $VC $TR $PR $VR 
+    moveItems $c $VC $TR $PR 0 0 
+	$c scale all [expr $width/2.0] [expr $height/2.0] [expr 1.0*$xfactor] [expr 1.0*$yfactor]
+	set scalefactor $xfactor
+	set scalefactor_PR $yfactor
     TR_gen $TR $width
-	mesh_gen $c 20.0 $width $height
+	PR_gen $PR $height
+    VR_gen $VR $height
+	mesh_gen $c 14.0 $width $height
 }
 
 proc sketch_box_add {c x y} {
