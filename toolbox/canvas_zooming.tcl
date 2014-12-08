@@ -2,7 +2,7 @@ package provide toolbox 1.0
 
 # canvas initialization
 proc init_canvas {area area_width area_height enclosure} {
-     global xc yc xoffset yoffset scalefactor scalefactor_PR orig_width orig_height pv_ratio h_margin
+     global xc yc xoffset yoffset scalefactor scalefactor_PR orig_width orig_height pv_ratio h_margin scroll_offset scroll_offset_PR
 	 global enable_snap
 	 set xc 0
 	 set yc 0
@@ -15,6 +15,9 @@ proc init_canvas {area area_width area_height enclosure} {
      set pv_ratio [expr 3.8/5.0]
 	 set h_margin 59
      set enable_snap 1
+     set ::not_init 0
+     set scroll_offset 0.0
+     set scroll_offset_PR 0.0
 
      # place holder
    	 set PH [canvas $area.placeholder -highlightthickness 0 -borderwidth 0 -width [expr $h_margin+1] -height 12 -background white] 
@@ -43,8 +46,8 @@ proc init_canvas {area area_width area_height enclosure} {
      grid rowconfigure    $enclosure "1 2" -weight 1
 
      # Set up event bindings for canvas:
-     bind $PC <Control-KeyPress-plus>   "scaleItems $PC $VC $TR 1 ; drawMarker $PC  %x %y"
-     bind $PC <Control-KeyPress-minus>  "scaleItems $PC $VC $TR -1 ; drawMarker $PC  %x %y"
+     bind $PC <Control-KeyPress-plus>   "scaleItems $PC $VC $TR 1 %x %y; drawMarker $PC  %x %y"
+     bind $PC <Control-KeyPress-minus>  "scaleItems $PC $VC $TR -1 %x %y; drawMarker $PC  %x %y"
 	 bind $PC <Motion>                  "focus      $PC   ; drawMarker $PC  %x %y"
      bind $PC <KeyPress-f>              "resetView  $PC $VC $TR $PR $VR; drawMarker $PC  %x %y"
      bind $PC <ButtonPress-1>           "sketch_box_add  $PC %x %y"
@@ -61,12 +64,12 @@ proc init_canvas {area area_width area_height enclosure} {
 
      # MMB scroll zoom - platform dependent
 	 if {[regexp "Linux" $::tcl_platform(os)]} {
-    	bind $PC <Button-4>                "scaleItems $PC $VC $TR 1; drawMarker $PC  %x %y"
-        bind $PC <Button-5>                "scaleItems $PC $VC $TR -1; drawMarker $PC  %x %y"
-    	bind $PR <Button-4>                "scaleItems_PR $PC $PR 1"
-        bind $PR <Button-5>                "scaleItems_PR $PC $PR -1"
+    	bind $PC <Button-4>                "scaleItems $PC $VC $TR 1 %x %y; drawMarker $PC  %x %y"
+        bind $PC <Button-5>                "scaleItems $PC $VC $TR -1 %x %y; drawMarker $PC  %x %y"
+    	bind $PR <Button-4>                "scaleItems_PR $PC $PR 1 %x %y"
+        bind $PR <Button-5>                "scaleItems_PR $PC $PR -1 %x %y"
      } else {
-        bind $PC <MouseWheel>              "scaleItems $PC $VC $TR %D; drawMarker $PC  %x %y"
+        bind $PC <MouseWheel>              "scaleItems $PC $VC $TR %D %x %y; drawMarker $PC  %x %y"
      }
 
 	 # RMB zoom - platform dependent
@@ -80,20 +83,17 @@ proc init_canvas {area area_width area_height enclosure} {
         bind $PC <ButtonRelease-2>         "zoomArea   $PC $VC $TR $PR $VR %x %y; drawMarker $PC  %x %y"
      }
 
-   	 bind $PC <Configure> "TR_bordergen $TR %w; TR_gen $TR %w;\
-	                       PR_bordergen $PR %h; PR_gen $PR %h;\
-						   VR_bordergen $VR %h; VR_gen $VR %h;\
-						   VC_bordergen $VC %w; \
-						   mesh_gen $PC 14.0 %w %h; \
-						   drawMarker $PC %x %y"
-     # generate rulers and meshes
+   	 bind $PC <Configure> "drawMarker $PC %x %y; onConfig $PC $VC $TR $PR $VR %w %h; "
+     drawChart $PC 1204 690
+
+	 # generate rulers and meshes
 	 return [list $PC $VC $TR $PR $VR]
 }
 
-proc drawChart {c} {
-     set width  [winfo width $c]
-	 set height [winfo height $c]
-	 $c create line [expr $width-200] 0 [expr $width-200] [expr $height] -width 1 -fill blue -tag Today 
+proc drawChart {c width height} {
+     $c delete chart
+	 $c create line [expr $width/2.0-7] [expr $height/2.0] [expr $width/2.0+7] [expr $height/2.0] -width 2 -fill black -capstyle round -tag chart
+	 $c create line [expr $width/2.0] [expr $height/2.0-10] [expr $width/2.0] [expr $height/2.0+10] -width 2 -fill black -capstyle round -tag chart
 }
 
 proc drawMarker {c x y} {
@@ -136,12 +136,14 @@ proc drawMarker {c x y} {
      }
 	 $c create line $x 0 $x $height -width 0.1 -fill red -tag verticalMarker
 	 $c create line  0 $y $width $y -width 0.1 -fill red -tag horizontalMarker
-     #$c create text $x $y -text [format " Date - 20141001\n \[Price - %.1f / Volume - %.1f\]" $x $y] -fill blue -anchor nw -tag coordMarker 
+     $c create text [expr $x+10] [expr $y+10] -text [format " Date - 20141001\n \[Price - %.1f / Volume - %.1f\]" $x $y] -fill blue -anchor nw -tag coordMarker 
 }
 
-proc mesh_gen {c granularity width height} {
-     set pos_x 600
-	 set pos_y 360
+proc mesh_gen {c granularity width height {pos_x "[expr $width/2]"}} {
+	 set width  [winfo width $c]
+     set height [winfo height $c]
+	 #set pos_x  [expr $width/2]
+	 set pos_y  [expr $height/2]
 
 	 global xoffset yoffset scalefactor scalefactor_PR
 	 $c delete verticalMeshLine
@@ -151,7 +153,7 @@ proc mesh_gen {c granularity width height} {
 	 set vsegment    [expr $granularity*$scalefactor]
 	 set vamount     [expr int($width/$vsegment)]
 	 set vcnt_offset [expr int(floor($xoffset*$scalefactor/$vsegment))]
-	 for {set vcnt [expr -$vamount+$vcnt_offset]} {$vcnt < [expr 2*$vamount+$vcnt_offset]} {incr vcnt} {
+	 for {set vcnt [expr -$vamount+$vcnt_offset]} {$vcnt < [expr $vamount+$vcnt_offset]} {incr vcnt} {
 	     set x [expr $xoffset*$scalefactor+$pos_x-$vcnt*$vsegment]
 		 if {![expr $vcnt%13]} {
 	        $c create line $x 0 $x $height -width 1 -fill #cccccc -tag verticalMeshLine
@@ -163,14 +165,16 @@ proc mesh_gen {c granularity width height} {
 	 set hsegment    [expr $granularity*$scalefactor_PR]
 	 set hamount     [expr int($height/$hsegment)]
 	 set hcnt_offset [expr int(floor($yoffset*$scalefactor_PR/$hsegment))]
-	 for {set hcnt [expr -$hamount+$hcnt_offset]} {$hcnt < [expr 2*$hamount+$hcnt_offset]} {incr hcnt} {
-		 set y [expr $yoffset*$scalefactor_PR+$pos_y-($hcnt+1)*$hsegment]
+	 for {set hcnt [expr -$hamount+$hcnt_offset]} {$hcnt < [expr $hamount+$hcnt_offset]} {incr hcnt} {
+		 set y [expr $yoffset*$scalefactor_PR+$pos_y-($hcnt)*$hsegment]
          if {![expr $hcnt%5]} {
 	        $c create line 0 $y $width $y -width 1 -dash {.} -fill #cccccc -tag horizontalMeshLine
 		 } else {
 	        $c create line 0 $y $width $y -width 1 -dash {.} -fill #cccccc -tag horizontalMeshLine
 	     }
      }
+	 $c lower verticalMeshLine
+	 $c lower horizontalMeshLine
 }
 
 proc TR_bordergen {c width} {
@@ -179,14 +183,15 @@ proc TR_bordergen {c width} {
      $c create line 0 11 $width 11 -width 1 -fill black -tag TR_Border
 }
 
-proc TR_gen {c width} {
-	 set pos   600
+proc TR_gen {c width {pos "[expr $width/2]"}} {
+	 #set pos    [expr $width/2]
 	 global xoffset scalefactor
 	 $c delete TimeLine
 	 set segment    [expr 13*14*$scalefactor]
 	 set amount     [expr int($width/$segment)]
 	 set cnt_offset [expr int(floor($xoffset*$scalefactor/$segment))]
-	 for {set cnt [expr -$amount+$cnt_offset]} {$cnt < [expr 2*$amount+$cnt_offset]} {incr cnt} {
+    # set cnt_offset 0 
+	 for {set cnt [expr -$amount+$cnt_offset]} {$cnt < [expr $amount+$cnt_offset]} {incr cnt} {
          $c create line [expr $xoffset*$scalefactor+$pos-$cnt*$segment] 0 [expr $xoffset*$scalefactor+$pos-$cnt*$segment] 11 -width 1 -fill blue -tag TimeLine
 		 $c create line [expr $xoffset*$scalefactor+$pos-$cnt*$segment-$segment] 0 [expr $xoffset*$scalefactor+$pos-$cnt*$segment-$segment] 11 -width 1 -fill blue -tag TimeLine
 		 $c create text [expr $xoffset*$scalefactor+$pos-$cnt*$segment-$segment/2.0] 5.5 -text [Calc_Quarter $cnt] -anchor center -font {"" 8} -tag TimeLine
@@ -223,14 +228,14 @@ proc PR_gen {c height} {
 	 global scalefactor_PR
 	 #disable scale for now
 	 set scalefactor $scalefactor_PR 
+	 set price_pos [expr $height/2]
 
-	 set price_pos 360
 	 $c delete PriceLine
 	 set segment    [expr 100.0*$scalefactor]
      set delta      [expr $segment/10.0]
 	 set amount     [expr int($height/$segment)]
 	 set cnt_offset [expr int(floor($yoffset*$scalefactor/$segment))]
-	 for {set cnt [expr -$amount+$cnt_offset]} {$cnt < [expr 2*$amount+$cnt_offset]} {incr cnt} {
+	 for {set cnt [expr -$amount+$cnt_offset]} {$cnt < [expr $amount+$cnt_offset]} {incr cnt} {
 		 set y_pos [expr $yoffset*$scalefactor+$price_pos-($cnt+1)*$segment]
          if {[expr $y_pos>16]} {
 		    $c create line [expr $h_margin*2.0/3.0 + 5] $y_pos $h_margin $y_pos -width 1 -fill blue -tag PriceLine
@@ -260,7 +265,7 @@ proc VR_gen {c height} {
      set delta      [expr $segment/2.0]
 	 set amount     [expr int($height/$segment)]
 	 set cnt_offset [expr int(floor($yoffset*$scalefactor/$segment))]
-	 for {set cnt [expr -$amount+$cnt_offset]} {$cnt < [expr 2*$amount+$cnt_offset]} {incr cnt} {
+	 for {set cnt [expr -$amount+$cnt_offset]} {$cnt < [expr $amount+$cnt_offset]} {incr cnt} {
 		 set y_pos [expr $yoffset*$scalefactor+$volume_pos-$cnt*$segment-$segment/2.0]
 		 if {[expr $y_pos>16]} {
 			$c create line [expr $h_margin*2.0/3.0 + 5] $y_pos $h_margin $y_pos -width 1 -fill blue -tag VolumeLine
@@ -294,84 +299,122 @@ proc Calc_Quarter {cnt} {
 }
 
 proc resetView {c VC TR PR VR} {
-	 global orig_width orig_height
+	 global orig_width orig_height scroll_offset scroll_offset_PR
      set width  [winfo width $c]
      set height [winfo height $c]
 	 set xoffset_orig [expr ($orig_width -$width )/2.0] 
 	 set yoffset_orig [expr ($orig_height-$height)/2.0] 
      global xoffset yoffset scalefactor scalefactor_PR
-     $c  scale all [expr $orig_width/2.0] [expr $orig_height/2.0] [expr 1.0/$scalefactor] [expr 1.0/$scalefactor_PR]
-	 $c  move all  [expr -$xoffset-$xoffset_orig] [expr -$yoffset-$yoffset_orig] 
+     $c  scale all [expr $width/2.0] [expr $height/2.0] [expr 1.0/$scalefactor] [expr 1.0/$scalefactor_PR]
+	 $c  move all  [expr -$xoffset+$scroll_offset] [expr -$yoffset+$scroll_offset_PR] 
 	 set xoffset 0.0
 	 set yoffset 0.0
+	 set scroll_offset 0.0
+	 set scroll_offset_PR 0.0
 	 set scalefactor 1.0
 	 set scalefactor_PR 1.0
 	 set orig_width  $width
 	 set orig_height $height
-     TR_gen $TR $width
+     TR_gen $TR $width 
      PR_gen $PR $height
      VR_gen $VR $height
 	 mesh_gen $c 14.0 $width $height
 }
 
+proc onConfig {c VC TR PR VR width height} {
+     global xoffset yoffset scalefactor scalefactor_PR
+	 global orig_width orig_height scroll_offset 
+	 if {$::not_init} {
+	    set xoffset_orig [expr ($orig_width -$width )/2.0] 
+	    set yoffset_orig [expr ($orig_height-$height)/2.0] 
+        $c  scale all [expr $width/2.0] [expr $height/2.0] [expr 1.0/$scalefactor] [expr 1.0/$scalefactor_PR]
+	    $c  move all  [expr -$xoffset_orig/$scalefactor] [expr -$yoffset_orig/$scalefactor_PR]
+        $c  scale all [expr $width/2.0] [expr $height/2.0] [expr $scalefactor] [expr $scalefactor_PR]
+     }
+	 set orig_width  $width
+	 set orig_height $height
+     incr ::not_init
+
+	 set xoffset [expr $xoffset-$scroll_offset]
+	 TR_bordergen $TR $width; TR_gen $TR $width;
+	 PR_bordergen $PR $height; PR_gen $PR $height;
+     VR_bordergen $VR $height; VR_gen $VR $height;
+	 VC_bordergen $VC $width; 
+	 mesh_gen     $c 14.0 $width $height;
+   	 set xoffset [expr $xoffset+$scroll_offset]
+}
+
 proc moveItems {c VC TR PR x y } {
      set width [winfo width $c]
 	 set height [winfo height $c]
-	 global xc yc xoffset yoffset scalefactor scalefactor_PR
+	 global xc yc xoffset yoffset scroll_offset scalefactor scalefactor_PR 
 	 $c move all [expr {$x-$xc}] [expr {$y-$yc}]
 	 set xoffset [expr $xoffset + ($x-$xc)/$scalefactor]
 	 set yoffset [expr $yoffset + ($y-$yc)/$scalefactor_PR]
 	 set xc $x
      set yc $y
-     TR_gen $TR $width
+	 set xoffset [expr $xoffset-$scroll_offset]
+	 TR_gen $TR $width 
      PR_gen $PR $height
 	 mesh_gen $c 14.0 $width $height
+  	 set xoffset [expr $xoffset+$scroll_offset]
 }
 
-proc scaleItems {c VC TR type} {
-	 global orig_width orig_height
+proc scaleItems {c VC TR type pos_x pos_y} {
+	 global orig_width orig_height xoffset yoffset scroll_offset 
      set width  [winfo width $c]
      set height [winfo height $c]
  	 set xoffset_orig [expr ($orig_width -$width )/2.0] 
 	 set yoffset_orig [expr ($orig_height-$height)/2.0] 
 	 global scalefactor
-     if {[expr $type > 0]} {
+	 if {[expr $type > 0]} {
          if {[expr $scalefactor <= pow(sqrt(2.0),6)]} {
-		    set scalefactor [expr $scalefactor*sqrt(2.0)]
-            $c scale all [expr $orig_width/2.0] [expr $orig_height/2.0] [expr {sqrt(2.0)}] 1.0
+           	 set scroll_offset [expr $scroll_offset+($pos_x-$width/2.0)/$scalefactor*(1-sqrt(2.0)/2.0)]
+			 set scalefactor [expr $scalefactor*sqrt(2.0)]
+ 	         $c scale all [expr $pos_x] [expr $height/2.0] [expr 1.0*sqrt(2.0)] 1.0
          }
        } else {
 	     if {[expr $scalefactor >= sqrt(2.0)]} {
-		    set scalefactor [expr $scalefactor/sqrt(2.0)]
-            $c scale all [expr $orig_width/2.0] [expr $orig_height/2.0] [expr {1.0/sqrt(2.0)}] 1.0
+          	 set scroll_offset [expr $scroll_offset+($pos_x-$width/2.0)/$scalefactor*(1-sqrt(2.0))]
+			 set scalefactor [expr $scalefactor/sqrt(2.0)]
+			 $c scale all [expr $pos_x] [expr $height/2.0] [expr 1.0/sqrt(2.0)] 1.0
 	     }
-     } 
+     }
  	 set orig_width  $width
 	 set orig_height $height
-     TR_gen $TR $width
-	 mesh_gen $c 14.0 $width $height
+	 set xoffset [expr $xoffset-$scroll_offset]
+     TR_gen $TR $width 
+	 mesh_gen $c 14.0 $width $height  
+ 	 set xoffset [expr $xoffset+$scroll_offset]
 }
 
-proc scaleItems_PR {c PR type} {
-	 global orig_width orig_height
+proc scaleItems_PR {c PR type pos_x pos_y} {
+	 $c delete CrossZone
+	 global orig_width orig_height xoffset yoffset scroll_offset scroll_offset_PR
      set width  [winfo width $c]
      set height [winfo height $c]
 	 global scalefactor_PR
      if {[expr $type > 0]} {
          if {[expr $scalefactor_PR <= pow(sqrt(2.0),4)]} {
+            set scroll_offset_PR [expr $scroll_offset_PR+($pos_y-$height/2.0)/$scalefactor_PR*(1-sqrt(2.0)/2.0)]
 		    set scalefactor_PR [expr $scalefactor_PR*sqrt(2.0)]
-            $c scale all [expr $orig_width/2.0] [expr $orig_height/2.0] 1.0 [expr {sqrt(2.0)}] 
+            $c scale all [expr $width/2.0] [expr $pos_y] 1.0 [expr {sqrt(2.0)}] 
          }
        } else {
 	     if {[expr $scalefactor_PR >= sqrt(2.0)]} {
+		    set scroll_offset_PR [expr $scroll_offset_PR+($pos_y-$height/2.0)/$scalefactor_PR*(1-sqrt(2.0))]
 		    set scalefactor_PR [expr $scalefactor_PR/sqrt(2.0)]
-            $c scale all [expr $orig_width/2.0] [expr $orig_height/2.0] 1.0 [expr {1.0/sqrt(2.0)}] 
+            $c scale all [expr $width/2.0] [expr $pos_y] 1.0 [expr {1.0/sqrt(2.0)}] 
 	     }
      } 
  	 set orig_width  $width
 	 set orig_height $height
+	 set xoffset [expr $xoffset-$scroll_offset]
+	 set yoffset [expr $yoffset-$scroll_offset_PR]
 	 PR_gen $PR $height
 	 mesh_gen $c 14.0 $width $height
+	 set xoffset [expr $xoffset+$scroll_offset]
+ 	 set yoffset [expr $yoffset+$scroll_offset_PR]
 }
 
 proc zoomMark {c x y} {

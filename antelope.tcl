@@ -70,6 +70,7 @@ proc open_analyzer {} {
      create_op_panel .antelope
 
 	 #update
+ 	 #resetView $::PC $::VC $::TR $::PR $::VR 
      #set width  [winfo width $::PC]
 	 #set height [winfo height $::PC]
      #TR_gen $::TR $width
