@@ -710,7 +710,12 @@ if {$::tcl_platform(os)=="Linux"} {
 	  source_opt \
 	  gvim \
 	  verinfo \
-      open_analyzer
+      open_analyzer \
+	  GetDayAndMonthFromWeekInYear \
+	  GetDayAndMonthFromDayInYear \
+	  GetDayOfTheWeek \
+	  GetDayOfTheYear \
+	  GetWeekOfTheYear
   ]
 
 }

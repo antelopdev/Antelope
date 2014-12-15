@@ -1,10 +1,6 @@
 Antelope
 ========
 
-[12/07/2014]
-
-Canvas interact function complete
-
 [11/14/2014]
 Uploaded
 
