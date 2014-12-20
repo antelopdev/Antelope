@@ -110,7 +110,7 @@ proc onConfig {c VC TR PR VR width height} {
 	 VC_bordergen $VC $width; 
 	 mesh_gen     $c 14.0 $width $height;
    	 set xoffset [expr $xoffset+$scroll_offset]
-     drawCross $c $width $height 20131209 96 90 94 
+     #drawCross $c $width $height 20131209 96 90 94 
 }
 
 proc drawCross {c width height DATE HIGH LOW CLOSE} {
@@ -143,7 +143,7 @@ proc drawCross {c width height DATE HIGH LOW CLOSE} {
 }
 
 proc drawMarker {c x y} {
-     global enable_snap scalefactor
+     global enable_snap scalefactor xoffset
 	 set width  [winfo width $c]
      set height [winfo height $c]
      $c delete verticalMarker
@@ -184,11 +184,20 @@ proc drawMarker {c x y} {
 	 $c create line  0 $y $width $y -width 0.1 -fill red -tag horizontalMarker
 	 set segment [expr 13*14*$scalefactor]
 	 set today_week [GetWeekOfTheYear $::date_year $::date_month $::date_day]
-	 set delta_week [expr int(($width/2+$segment-$x)/(14*$scalefactor))]
-	 set display_year [expr $::date_year+($today_week-$delta_week)/53]
-	 set display_week [expr ($today_week-$delta_week)%53]
-     set display [GetDayAndMonthFromWeekInYear $display_year $display_week]
-     $c create text [expr $x+10] [expr $y+10] -text [format " @ $display\n \[Price %.1f\] | \[Volume %.1f\]" $x $y] -fill blue -anchor nw -tag coordMarker 
+	 set delta_week [expr int(($x-($width/2+$segment+$xoffset*$scalefactor))/(14*$scalefactor))]
+
+     set week_range [expr [GetNumberOfWeeksInYear $::date_year]-$today_week]
+	 set i 0
+     while {[expr $week_range < $delta_week]} {
+		 incr i
+		 incr week_range [GetNumberOfWeeksInYear [expr $::date_year + $i]]
+     }
+     set display_year [expr $::date_year+$i]
+	 set display_week [expr [GetNumberOfWeeksInYear $::date_year+$i]-($week_range-$delta_week)]
+	 set display_start [GetDayAndMonthFromWeekInYear $display_year $display_week]
+	 set display_end   [GetDayAndMonthFromDayInYear [lindex $display_start 0] [expr [GetDayOfTheYear [lindex $display_start 0] [lindex $display_start 1] [lindex $display_start 2]]+6]]
+     $c create text [expr $x+10] [expr $y+10] -text [format " | @ Week #$display_week {$display_start, $display_end}"] -fill blue -anchor nw -tag coordMarker
+	 $c create text [expr $x+10] [expr $y+28] -text [format " | Price %.1f / Volume %.1f" $x $y] -fill #600000 -anchor nw -tag coordMarker
 }
 
 proc mesh_gen {c granularity width height {pos_x "[expr $width/2]"}} {
@@ -216,7 +225,8 @@ proc mesh_gen {c granularity width height {pos_x "[expr $width/2]"}} {
             $c create line $x 0 $x $height -width 1 -dash {.} -fill #cccccc -tag verticalMeshLine
 	     }
 		 if {[expr $vcnt==-13]} {
-			$c create line [expr $x-$week_offset] 0 [expr $x-$week_offset] $height -width 1 -fill green -tag todayLine
+			$c create line [expr $x-$week_offset] 0 [expr $x-$week_offset] $height -width 1 -fill #123582 -tag todayLine
+			$c create line [expr $x-$week_offset+1] 0 [expr $x-$week_offset+1] $height -width 1 -fill #e5e500 -tag todayLine
 	     } 
      }
 	 # horizontal stripes
@@ -346,16 +356,20 @@ proc Calc_Quarter {cnt} {
      set year [expr $::date_year+$overtime/12]
      set month [expr $overtime%12]
 
-	 if {[expr $month >=3 && $month <6]} {
+	 if {[expr $month >=4 && $month <=6]} {
 	    set quarter "2"
-     } elseif {[expr $month >=6 && $month <9]} {
+		return "$year Q2 \[Apr ~ Jun\]"
+     } elseif {[expr $month >=7 && $month <=9]} {
         set quarter "3"
-     } elseif {[expr $month >=9 && $month <12]} {
+		return "$year Q3 \[Jul ~ Sep\]"
+     } elseif {[expr $month >=10 && $month <=12]} {
         set quarter "4"
+		return "$year Q4 \[Oct ~ Dec\]"
      } else {
         set quarter "1"
+		return "$year Q1 \[Jan ~ Mar\]"
      }
-	 return "$year $quarter"
+	# return "$year Quarter$quarter"
 }
 
 proc resetView {c VC TR PR VR} {
@@ -614,12 +628,17 @@ proc GetDayAndMonthFromWeekInYear {year weekInYear} {
             set dayInYear [expr $dayInYear - $daysInYear];
         }
     }
-    set temp [GetDayAndMonthFromDayInYear $year $dayInYear]
-	set month [lindex $temp 0]
-	set dayInMonth [expr [lindex $temp 1] - 1]
-    #return [list $year $month $dayInMonth]
+    set temp [GetDayAndMonthFromDayInYear $year [expr $dayInYear]]
+	set month [lindex $temp 1]
+	set dayInMonth [lindex $temp 2]
+
+	if {[expr $weekInYear==0] && [expr [GetNumberOfWeeksInYear [expr $year-1]]==52]} {
+       return [list 0 0 0]
+    } else {
+ 	   return [list $year $month $dayInMonth]
+    }
     set names [list dummy Jan Feb Mar Apr May Jun Jul Aug Sept Oct Nov Dec]
-	return "$year / [lindex $names $month] / $dayInMonth"
+	#return "$year-[lindex $names $month]-$dayInMonth"
 }
 
 proc IsALeapYear {year} {
@@ -657,7 +676,11 @@ proc GetDayAndMonthFromDayInYear {year dayInYear} {
         set dayInYear [expr $dayInYear - $daysInMonth]
     }
     set dayInMonth [expr int($dayInYear)]
-    return [list $month $dayInMonth]
+	if {[expr $month>12]} {
+		set month [expr $month%12]
+		incr year
+    }
+    return [list $year $month $dayInMonth]
 }
 
 proc GetNumberOfWeeksInYear {year} { 
@@ -668,7 +691,9 @@ proc GetNumberOfWeeksInYear {year} {
 proc GetDayOfTheWeek {year month day} { 
    set t [list 0 3 2 5 0 3 5 1 4 6 2 4]
    set year [expr $year-($month < 3)]
-   return [expr ($year + $year/4 - $year/100 + $year/400 + [lindex $t [expr $month-1]] + $day) % 7]
+   set result [expr ($year + $year/4 - $year/100 + $year/400 + [lindex $t [expr $month-1]] + $day) % 7]
+   if {[expr $result==0]} {set result 7}
+   return $result
 }
 
 proc GetDayOfTheYear {year month day} {
@@ -682,5 +707,6 @@ proc GetDayOfTheYear {year month day} {
 
 proc GetWeekOfTheYear {year month day} {
    set weeknum [expr int(floor(([GetDayOfTheYear $year $month $day]-[GetDayOfTheWeek $year $month $day]+10)/7))]
+#   if [expr $weeknum==53] {set weeknum 52}
    return $weeknum
 }
