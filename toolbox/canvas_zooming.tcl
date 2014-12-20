@@ -3,7 +3,7 @@ package provide toolbox 1.0
 # canvas initialization
 proc init_canvas {area area_width area_height enclosure} {
      global xc yc xoffset yoffset scalefactor scalefactor_PR orig_width orig_height pv_ratio h_margin scroll_offset scroll_offset_PR
-	 global enable_snap
+	 global enable_snap marker_x marker_y
 	 set xc 0
 	 set yc 0
 	 set xoffset 0.0
@@ -15,6 +15,8 @@ proc init_canvas {area area_width area_height enclosure} {
      set pv_ratio [expr 3.8/5.0]
 	 set h_margin 59
      set enable_snap 1
+	 set marker_x 0
+	 set marker_y 0
      set ::not_init 0
      set scroll_offset 0.0
      set scroll_offset_PR 0.0
@@ -52,6 +54,10 @@ proc init_canvas {area area_width area_height enclosure} {
      bind $PC <KeyPress-f>              "resetView  $PC $VC $TR $PR $VR; drawMarker $PC  %x %y"
      bind $PC <ButtonPress-1>           "sketch_box_add  $PC %x %y"
 	 bind $PC <B1-Motion>               "sketch_box_add  $PC %x %y"
+	 bind $PC <KeyPress-Left>           "moveMarker $PC left"
+	 bind $PC <KeyPress-Right>          "moveMarker $PC right"
+	 bind $PC <KeyPress-Up>             "moveMarker $PC up"
+	 bind $PC <KeyPress-Down>           "moveMarker $PC down"
 
      # MMB move - platform dependent
 	 if {[regexp "Linux" $::tcl_platform(os)] || [regexp "Windows" $::tcl_platform(os)]} {
@@ -143,7 +149,7 @@ proc drawCross {c width height DATE HIGH LOW CLOSE} {
 }
 
 proc drawMarker {c x y} {
-     global enable_snap scalefactor xoffset
+     global enable_snap scalefactor xoffset scroll_offset marker_x marker_y
 	 set width  [winfo width $c]
      set height [winfo height $c]
      $c delete verticalMarker
@@ -184,20 +190,50 @@ proc drawMarker {c x y} {
 	 $c create line  0 $y $width $y -width 0.1 -fill red -tag horizontalMarker
 	 set segment [expr 13*14*$scalefactor]
 	 set today_week [GetWeekOfTheYear $::date_year $::date_month $::date_day]
-	 set delta_week [expr int(($x-($width/2+$segment+$xoffset*$scalefactor))/(14*$scalefactor))]
-
+	 set delta_week [expr int(($x-($width/2+$segment+($xoffset-$scroll_offset)*$scalefactor))/(14*$scalefactor))]
      set week_range [expr [GetNumberOfWeeksInYear $::date_year]-$today_week]
+	 set week_range_orig $week_range
 	 set i 0
-     while {[expr $week_range < $delta_week]} {
-		 incr i
-		 incr week_range [GetNumberOfWeeksInYear [expr $::date_year + $i]]
+	 if {[expr ($delta_week >= $week_range_orig)]} {
+         while {[expr ($week_range < $delta_week)]} {
+	         incr i
+	         incr week_range [GetNumberOfWeeksInYear [expr $::date_year + $i]]
+         }
+		 set display_year [expr $::date_year+$i]
+		 set display_week [expr [GetNumberOfWeeksInYear $::date_year+$i]-($week_range-$delta_week)]
+     } else {
+         while {[expr ($week_range >= $delta_week)]} {
+	         incr week_range [expr -1*[GetNumberOfWeeksInYear [expr $::date_year + $i]]]
+	         incr i -1
+         }
+		 set display_year [expr $::date_year+$i+1]
+		 set display_week [expr -($week_range-$delta_week)]
      }
-     set display_year [expr $::date_year+$i]
-	 set display_week [expr [GetNumberOfWeeksInYear $::date_year+$i]-($week_range-$delta_week)]
 	 set display_start [GetDayAndMonthFromWeekInYear $display_year $display_week]
 	 set display_end   [GetDayAndMonthFromDayInYear [lindex $display_start 0] [expr [GetDayOfTheYear [lindex $display_start 0] [lindex $display_start 1] [lindex $display_start 2]]+6]]
      $c create text [expr $x+10] [expr $y+10] -text [format " | @ Week #$display_week {$display_start, $display_end}"] -fill blue -anchor nw -tag coordMarker
 	 $c create text [expr $x+10] [expr $y+28] -text [format " | Price %.1f / Volume %.1f" $x $y] -fill #600000 -anchor nw -tag coordMarker
+     set marker_x $x
+	 set marker_y $y
+}
+
+proc moveMarker {c dir} {
+     global marker_x marker_y
+     switch $dir {
+        "up" {
+              set marker_y [expr $marker_y-14]
+		}
+        "down" {
+              set marker_y [expr $marker_y+14]
+		}
+        "left" {
+              set marker_x [expr $marker_x-14]
+		}
+		"right" {
+			  set marker_x [expr $marker_x+14]
+	    }
+    }
+    drawMarker $c $marker_x $marker_y
 }
 
 proc mesh_gen {c granularity width height {pos_x "[expr $width/2]"}} {
@@ -212,23 +248,113 @@ proc mesh_gen {c granularity width height {pos_x "[expr $width/2]"}} {
      $c delete todayLine
 
      # vertical stripes
-	 set vsegment    [expr $granularity*$scalefactor]
-	 set vamount     [expr int($width/$vsegment)]
-	 set vcnt_offset [expr int(floor($xoffset*$scalefactor/$vsegment))]
-	 set today_week [GetWeekOfTheYear $::date_year $::date_month $::date_day]
-	 set week_offset [expr (13 - $today_week%13)*14*$scalefactor]
-	 for {set vcnt [expr -$vamount+$vcnt_offset]} {$vcnt < [expr $vamount+$vcnt_offset]} {incr vcnt} {
-	     set x [expr $week_offset+$xoffset*$scalefactor+$pos_x-$vcnt*$vsegment]
-		 if {![expr $vcnt%13]} {
-	        $c create line $x 0 $x $height -width 1 -fill #cccccc -tag verticalMeshLine
-	     } else {
-            $c create line $x 0 $x $height -width 1 -dash {.} -fill #cccccc -tag verticalMeshLine
-	     }
-		 if {[expr $vcnt==-13]} {
-			$c create line [expr $x-$week_offset] 0 [expr $x-$week_offset] $height -width 1 -fill #123582 -tag todayLine
-			$c create line [expr $x-$week_offset+1] 0 [expr $x-$week_offset+1] $height -width 1 -fill #e5e500 -tag todayLine
-	     } 
+	 #set vsegment    [expr $granularity*$scalefactor]
+	 #set vamount     [expr int($width/$vsegment)]
+	 #set vcnt_offset [expr int(floor($xoffset*$scalefactor/$vsegment))]
+	 #set today_week [GetWeekOfTheYear $::date_year $::date_month $::date_day]
+	 #set week_offset [expr (13 - $today_week%13)*14*$scalefactor]
+	 #for {set vcnt [expr -$vamount+$vcnt_offset]} {$vcnt < [expr $vamount+$vcnt_offset]} {incr vcnt} {
+	 #    set x [expr $week_offset+$xoffset*$scalefactor+$pos_x-$vcnt*$vsegment]
+	 #    if {![expr $vcnt%13]} {
+	 #       $c create line $x 0 $x $height -width 1 -fill #cccccc -tag verticalMeshLine
+	 #    } else {
+     #       $c create line $x 0 $x $height -width 1 -dash {.} -fill #cccccc -tag verticalMeshLine
+	 #    }
+	 #    if {[expr $vcnt==-13]} {
+	 #   	$c create line [expr $x-$week_offset] 0 [expr $x-$week_offset] $height -width 1 -fill #123582 -tag todayLine
+	 #   	$c create line [expr $x-$week_offset+1] 0 [expr $x-$week_offset+1] $height -width 1 -fill #e5e500 -tag todayLine
+	 #    } 
+     #}
+
+	 # find start offset location
+	 set current_weeknumbers [GetNumberOfWeeksInYear $::date_year]
+     set today_week [GetWeekOfTheYear $::date_year $::date_month $::date_day]
+	 if {[expr ($current_weeknumbers==53) && ($today_week>39)]} {
+	    set start_offset [expr $pos_x+(14+53-$today_week)*14*$scalefactor]
+     } else {
+        set start_offset [expr $pos_x+(13+13-$today_week%13)*14*$scalefactor]
      }
+
+	 # populate today line
+	 $c create line $start_offset 0 $start_offset $height -width 1 -fill #123582 -tag todayLine
+	 $c create line [expr $start_offset+1] 0 [expr $start_offset+1] $height -width 1 -fill #e5e500 -tag todayLine
+	 
+	 # populate year in the past
+     set Qtotal_offset 0
+	 for {set year_range 0} { $year_range > -5} {incr year_range -1} {
+		 set display_year [expr $::date_year + $year_range]
+		 set weeknumbers [GetNumberOfWeeksInYear $display_year]
+	     # Q4
+	     if {[expr ($weeknumbers==53)]} {
+	        set Q4_offset  [expr 14*14*$scalefactor]
+	     } else {
+	        set Q4_offset  [expr 13*14*$scalefactor]
+	     }
+	     set Q_offset  [expr 13*14*$scalefactor]
+	     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor] $height -width 1 -fill #cccccc -tag verticalMeshLine
+         $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset] $height -width 1 -fill #cccccc -tag verticalMeshLine
+         for {set i 1} {$i<13} {incr i} {
+		     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$i*14*$scalefactor] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$i*14*$scalefactor] $height -width 1 -dash {.} -fill #cccccc -tag verticalMeshLine
+	     }
+		 # Q3
+	     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset] $height -width 1 -fill #cccccc -tag verticalMeshLine
+         $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset] $height -width 1 -fill #cccccc -tag verticalMeshLine
+         for {set i 1} {$i<13} {incr i} {
+		     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$i*14*$scalefactor] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$i*14*$scalefactor] $height -width 1 -dash {.} -fill #cccccc -tag verticalMeshLine
+	     }
+		 # Q2
+	     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset] $height -width 1 -fill #cccccc -tag verticalMeshLine
+         $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset] $height -width 1 -fill #cccccc -tag verticalMeshLine
+         for {set i 1} {$i<13} {incr i} {
+		     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset-$i*14*$scalefactor] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset-$i*14*$scalefactor] $height -width 1 -dash {.} -fill #cccccc -tag verticalMeshLine
+	     }
+		 # Q1
+	     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset] $height -width 1 -fill #cccccc -tag verticalMeshLine
+         $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-3*$Q_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-3*$Q_offset] $height -width 1 -fill #cccccc -tag verticalMeshLine
+         for {set i 1} {$i<13} {incr i} {
+		     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset-$i*14*$scalefactor] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset-$i*14*$scalefactor] $height -width 1 -dash {.} -fill #cccccc -tag verticalMeshLine
+	     }
+   		 set Qtotal_offset [expr $Qtotal_offset - $weeknumbers*14*$scalefactor]
+     }
+
+	 # populate year in the future
+     set Qtotal_offset 0
+	 for {set year_range 1} { $year_range < 5} {incr year_range} {
+		 set display_year [expr $::date_year + $year_range]
+		 set weeknumbers [GetNumberOfWeeksInYear $display_year]
+	     # Q4
+	     if {[expr ($weeknumbers==53)]} {
+	        set Q4_offset  [expr 14*14*$scalefactor]
+	     } else {
+	        set Q4_offset  [expr 13*14*$scalefactor]
+	     }
+	     set Q_offset  [expr 13*14*$scalefactor]
+		 set Qtotal_offset [expr $Qtotal_offset + $weeknumbers*14*$scalefactor]
+	     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor] $height -width 1 -fill #cccccc -tag verticalMeshLine
+         $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset] $height -width 1 -fill #cccccc -tag verticalMeshLine
+         for {set i 1} {$i<13} {incr i} {
+		     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$i*14*$scalefactor] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$i*14*$scalefactor] $height -width 1 -dash {.} -fill #cccccc -tag verticalMeshLine
+	     }
+		 # Q3
+	     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset] $height -width 1 -fill #cccccc -tag verticalMeshLine
+         $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset] $height -width 1 -fill #cccccc -tag verticalMeshLine
+         for {set i 1} {$i<13} {incr i} {
+		     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$i*14*$scalefactor] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$i*14*$scalefactor] $height -width 1 -dash {.} -fill #cccccc -tag verticalMeshLine
+	     }
+		 # Q2
+	     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset] $height -width 1 -fill #cccccc -tag verticalMeshLine 
+         $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset] $height -width 1 -fill #cccccc -tag verticalMeshLine 
+         for {set i 1} {$i<13} {incr i} {
+		     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset-$i*14*$scalefactor] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset-$i*14*$scalefactor] $height -width 1 -dash {.} -fill #cccccc -tag verticalMeshLine
+	     }
+		 # Q1
+	     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset] $height -width 1 -fill #cccccc -tag verticalMeshLine
+         $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-3*$Q_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-3*$Q_offset] $height -width 1 -fill #cccccc -tag verticalMeshLine
+         for {set i 1} {$i<13} {incr i} {
+		     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset-$i*14*$scalefactor] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset-$i*14*$scalefactor] $height -width 1 -dash {.} -fill #cccccc -tag verticalMeshLine
+	     }
+     }
+
 	 # horizontal stripes
 	 set hsegment    [expr $granularity*$scalefactor_PR]
 	 set hamount     [expr int($height/$hsegment)]
@@ -252,18 +378,76 @@ proc TR_bordergen {c width} {
 }
 
 proc TR_gen {c width {pos "[expr $width/2]"}} {
-	 global xoffset scalefactor
+	 global xoffset scalefactor scroll_offset
 	 $c delete TimeLine
-	 set segment    [expr 13*14*$scalefactor]
-	 set amount     [expr int($width/$segment)]
-	 set cnt_offset [expr int(floor($xoffset*$scalefactor/$segment))]
-	 set today_week [GetWeekOfTheYear $::date_year $::date_month $::date_day]
-     set week_offset [expr (13 - $today_week%13)*14*$scalefactor]
-    # set cnt_offset 0 
-	 for {set cnt [expr -$amount+$cnt_offset]} {$cnt < [expr $amount+$cnt_offset]} {incr cnt} {
-         $c create line [expr $week_offset+$xoffset*$scalefactor+$pos-$cnt*$segment] 0 [expr $week_offset+$xoffset*$scalefactor+$pos-$cnt*$segment] 11 -width 1 -fill blue -tag TimeLine
-		 $c create line [expr $week_offset+$xoffset*$scalefactor+$pos-$cnt*$segment-$segment] 0 [expr $week_offset+$xoffset*$scalefactor+$pos-$cnt*$segment-$segment] 11 -width 1 -fill blue -tag TimeLine
-		 $c create text [expr $week_offset+$xoffset*$scalefactor+$pos-$cnt*$segment-$segment/2.0] 5.5 -text [Calc_Quarter $cnt] -anchor center -font {"" 8} -tag TimeLine
+
+	 # find start offset location
+	 set current_weeknumbers [GetNumberOfWeeksInYear $::date_year]
+     set today_week [GetWeekOfTheYear $::date_year $::date_month $::date_day]
+	 if {[expr ($current_weeknumbers==53) && ($today_week>39)]} {
+	    set start_offset [expr $pos+(14+53-$today_week)*14*$scalefactor]
+     } else {
+        set start_offset [expr $pos+(13+13-$today_week%13)*14*$scalefactor]
+     }
+
+	 # populate year in the past
+     set Qtotal_offset 0
+	 for {set year_range 0} { $year_range > -5} {incr year_range -1} {
+		 set display_year [expr $::date_year + $year_range]
+		 set weeknumbers [GetNumberOfWeeksInYear $display_year]
+	     # Q4
+	     if {[expr ($weeknumbers==53)]} {
+	        set Q4_offset  [expr 14*14*$scalefactor]
+	     } else {
+	        set Q4_offset  [expr 13*14*$scalefactor]
+	     }
+	     set Q_offset  [expr 13*14*$scalefactor]
+	     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor] 11 -width 1 -fill blue -tag TimeLine
+         $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset] 11 -width 1 -fill blue -tag TimeLine
+         $c create text [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset/2.0] 5.5 -text "$display_year Q4" -anchor center -font {"" 8} -tag TimeLine
+	     # Q3
+	     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset] 11 -width 1 -fill blue -tag TimeLine
+         $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset] 11 -width 1 -fill blue -tag TimeLine
+         $c create text [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset/2.0] 5.5 -text "$display_year Q3" -anchor center -font {"" 8} -tag TimeLine
+	     # Q2
+	     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset] 11 -width 1 -fill blue -tag TimeLine
+         $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset] 11 -width 1 -fill blue -tag TimeLine
+         $c create text [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset-$Q_offset/2.0] 5.5 -text "$display_year Q2" -anchor center -font {"" 8} -tag TimeLine
+	     # Q1
+	     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset] 11 -width 1 -fill blue -tag TimeLine
+         $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-3*$Q_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-3*$Q_offset] 11 -width 1 -fill blue -tag TimeLine
+         $c create text [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset-$Q_offset/2.0] 5.5 -text "$display_year Q1" -anchor center -font {"" 8} -tag TimeLine
+   		 set Qtotal_offset [expr $Qtotal_offset - $weeknumbers*14*$scalefactor]
+     }
+
+	 # populate year in the future
+     set Qtotal_offset 0
+	 for {set year_range 1} { $year_range < 5} {incr year_range} {
+		 set display_year [expr $::date_year + $year_range]
+		 set weeknumbers [GetNumberOfWeeksInYear $display_year]
+	     # Q4
+	     if {[expr ($weeknumbers==53)]} {
+	        set Q4_offset  [expr 14*14*$scalefactor]
+	     } else {
+	        set Q4_offset  [expr 13*14*$scalefactor]
+	     }
+	     set Q_offset  [expr 13*14*$scalefactor]
+		 set Qtotal_offset [expr $Qtotal_offset + $weeknumbers*14*$scalefactor]
+	     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor] 11 -width 1 -fill blue -tag TimeLine
+         $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset] 11 -width 1 -fill blue -tag TimeLine
+         $c create text [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset/2.0] 5.5 -text "$display_year Q4" -anchor center -font {"" 8} -tag TimeLine
+	     # Q3
+	     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset] 11 -width 1 -fill blue -tag TimeLine
+         $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset] 11 -width 1 -fill blue -tag TimeLine
+         $c create text [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset/2.0] 5.5 -text "$display_year Q3" -anchor center -font {"" 8} -tag TimeLine
+	     # Q2
+	     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset] 11 -width 1 -fill blue -tag TimeLine
+         $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset] 11 -width 1 -fill blue -tag TimeLine
+         $c create text [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-$Q_offset-$Q_offset/2.0] 5.5 -text "$display_year Q2" -anchor center -font {"" 8} -tag TimeLine
+	     # Q1
+	     $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset] 11 -width 1 -fill blue -tag TimeLine
+         $c create line [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-3*$Q_offset] 0 [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-3*$Q_offset] 11 -width 1 -fill blue -tag TimeLine
+         $c create text [expr $Qtotal_offset+$start_offset+$xoffset*$scalefactor-$Q4_offset-2*$Q_offset-$Q_offset/2.0] 5.5 -text "$display_year Q1" -anchor center -font {"" 8} -tag TimeLine
      }
 } 
 
