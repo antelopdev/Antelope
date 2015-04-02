@@ -271,8 +271,8 @@ class CHART(ttk.Frame):
                 self.pchart.create_line(math.ceil(snap_x+radius+3), snap_y+3, snap_x+3, snap_y+3, snap_x+3, math.ceil(snap_y+radius+3), fill='blue', tag='CrossZone') 
                 x = snap_x
                 y = snap_y
-        else:
-            self.pchart.config(cursor="")
+            else:
+                self.pchart.config(cursor="")
         # acquire cursor date
         CursorDate = self.GetCursorDate(x)
         display_year  = CursorDate[0]
@@ -319,10 +319,6 @@ class CHART(ttk.Frame):
         self.pruler.RulerGen()
         self.vruler.RulerGen()
 
-    def CurveGen(self):
-        if self.enable_todayline:
-            self.pchart.create_line(self.today_loc + self.xoffset*self.hscale, 0, self.today_loc + self.xoffset*self.hscale, self.pheight, width=1, fill='#123582', tag='todayLine')
-
     def MeshGen(self):
         self.tline.delete('TimeLine')
         self.pchart.delete('verticalMeshLine')
@@ -356,7 +352,8 @@ class CHART(ttk.Frame):
 
         if self.enable_daily:
             DoW = GetDayOfTheWeek(now.year, now.month, now.day)
-            if DoW>5: DoW = 5
+            if DoW>5: 
+                DoW = 5
             self.today_loc += (DoW-1)*2*self.hscale
         
         shrink_table = [10, 8, 6, 4, 4, 3, 3, 3, 3, 2, 2]
@@ -446,6 +443,21 @@ class CHART(ttk.Frame):
         self.pchart.lower('verticalMeshLine')
         self.pchart.lower('horizontalMeshLine')
         self.vchart.lower('verticalMeshLine')
+
+    def CurveGen(self):
+        funda_tree = self.parent.parent.setting.info.notemenu.funda.tree
+        tech_tree  = self.parent.parent.setting.info.notemenu.tech.tree
+        misc_tree  = self.parent.parent.setting.info.notemenu.misc.tree
+
+        # Today Line
+        try:
+            self.enable_todayline = funda_tree.vcheck[funda_tree.mapping['Today Line']]
+        except:
+            self.enable_todayline = funda_tree.vcheck[funda_tree.mapping['T']]
+        if self.enable_todayline:
+            self.pchart.create_line(self.today_loc + self.xoffset*self.hscale, 0, self.today_loc + self.xoffset*self.hscale, self.pheight, width=1, fill='#123582', tag='todayLine')
+        else:
+            self.pchart.delete('todayLine')
 
 class TL(tk.Canvas):
 

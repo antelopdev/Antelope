@@ -16,13 +16,13 @@ from scripts.analyzer import *
 ## global var
 analyzer = None
 
+# init toplevel
+root = tk.Tk()
+root.withdraw()
+
 ## function
 def open_analyzer():
     global analyzer
-
-    # init toplevel
-    root = tk.Tk()
-    root.withdraw()
 
     # set ttk theme
     set_theme()

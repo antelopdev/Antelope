@@ -11,34 +11,30 @@ class INFO(tk.Frame):
         self.InitVar()
         self.notemenu = ttk.Notebook(self)
         self.notemenu.enable_traversal()
-        self.notemenu.favor = TREEFRAME(self, self.favor_list, padding=2)
         self.notemenu.funda = TREEFRAME(self, self.funda_list, padding=2)
         self.notemenu.tech  = TREEFRAME(self, self.tech_list,  padding=2)
+        self.notemenu.misc  = TREEFRAME(self, self.misc_list,  padding=2)
 
-        self.notemenu.add(self.notemenu.favor, text=" Favorite ", underline=1, padding=2)
         self.notemenu.add(self.notemenu.funda, text=" Fundamental ", underline=1, padding=2)
         self.notemenu.add(self.notemenu.tech,  text=" Technical ", underline=1, padding=2)
+        self.notemenu.add(self.notemenu.misc,  text=" Misc ",      underline=1, padding=2)
         self.notemenu.pack(side='top', fill='both', expand=1, padx=0, pady=0)
 
     def InitVar(self):
-
-        self.favor_list = {}
-        self.favor_list['A'] = ['Accounting Change', 'After-tax Margin'] 
-        self.favor_list['C'] = ['Cash Ratio', 'Current Ratio']
-        self.favor_list['D'] = ['Deferred Charges', 'Depreciation Expense']
-        self.favor_list['T'] = ['Total Capital', 'Total Short-term Debt']
 
         self.funda_list = {}
         self.funda_list['A'] = ['Accounting Change', 'After-tax Margin'] 
         self.funda_list['C'] = ['Cash Ratio', 'Current Ratio']
         self.funda_list['D'] = ['Deferred Charges', 'Depreciation Expense']
-        self.funda_list['T'] = ['Total Capital', 'Total Short-term Debt']
+        self.funda_list['T'] = ['Today Line', 'Total Capital', 'Total Short-term Debt']
         
         self.tech_list = {}
         self.tech_list['A']  = ['Accumulation/Distribution']
         self.tech_list['B']  = ['Bollinger Bands']
         self.tech_list['E']  = ['Elliott Wave', 'Envelope']
         self.tech_list['M']  = ['Moving Average']
+
+        self.misc_list = {}
 
 # --------------------------
 class TREEFRAME(ttk.Frame):
@@ -85,7 +81,6 @@ class TREEFRAME(ttk.Frame):
 
 	    # Create Bindings
         self.tree.notify_bind('<Expand-before>', self.AddChildItems)
-        self.tree.notify_bind('<Selection>', self.ChangeStatus)
         self.tree.bind('<ButtonPress-1>', self.TurnCheck) 
         self.tree.bindtags((self.tree, 'info', 'TreeCtrl', self.tree.winfo_toplevel(), 'all'))
         
@@ -139,11 +134,6 @@ class TREEFRAME(ttk.Frame):
                 event.widget.itemstate_forcolumn(indexID, 2, '!CHECK')
             self.tree.mapping[index]  = indexID
 
-    def ChangeStatus(self, event):
-        item = event.selected
-        text = self.tree.itemelement_cget(item, 0, 'elemText', 'text')
-        self.parent.parent.parent.status.set(text) 
-
     def TurnCheck(self, event):
         try:
             id = event.widget.identify(event.x, event.y)
@@ -152,6 +142,9 @@ class TREEFRAME(ttk.Frame):
         if len(id)== 6:
             what  = id[0]; item  = id[1]; where = id[2]; arg1  = id[3]; arg2  = id[4]; arg3  = id[5]
             if where == "column" :
+                if event.widget.column_tag_expr(arg1, 'indicator') :
+                    text = self.tree.itemelement_cget(item, 0, 'elemText', 'text')
+                    self.parent.parent.parent.status.set(text) 
                 if event.widget.column_tag_expr(arg1, 'view') :
                     self.tree.vcheck[item] = not self.tree.vcheck[item]
                     if self.tree.vcheck[item] == True :
@@ -164,19 +157,6 @@ class TREEFRAME(ttk.Frame):
                         for idx in self.tree.subset[item] :
                             self.tree.vcheck[idx] = False
                             event.widget.itemstate_forcolumn(idx, arg1, '!CHECK')
-                    try :        
-                        topnode = self.tree.topnode[item]
-                        status = False
-                        for idx in self.tree.subset[topnode] :
-                            status = status or self.tree.vcheck[idx]
-                        if status == True :
-                            self.tree.vcheck[topnode] = True
-                            event.widget.itemstate_forcolumn(topnode, arg1, 'CHECK')
-                        else :
-                            self.tree.vcheck[topnode] = False
-                            event.widget.itemstate_forcolumn(topnode, arg1, '!CHECK')
-                    except :
-                        return
                 if event.widget.column_tag_expr(arg1, 'select') :
                     self.tree.scheck[item] = not self.tree.scheck[item]
                     if self.tree.scheck[item] == True :
@@ -189,18 +169,6 @@ class TREEFRAME(ttk.Frame):
                         for idx in self.tree.subset[item] :
                             self.tree.scheck[idx] = False
                             event.widget.itemstate_forcolumn(idx, arg1, '!CHECK')
-                    try :        
-                        topnode = self.tree.topnode[item]
-                        status = False
-                        for idx in self.tree.subset[topnode] :
-                            status = status or self.tree.scheck[idx]
-                        if status == True :
-                            self.tree.scheck[topnode] = True
-                            event.widget.itemstate_forcolumn(topnode, arg1, 'CHECK')
-                        else :
-                            self.tree.scheck[topnode] = False
-                            event.widget.itemstate_forcolumn(topnode, arg1, '!CHECK')
-                    except :
-                        return
+                self.parent.parent.parent.monitor.chart.CurveGen()        
 
         
