@@ -1,0 +1,33 @@
+# Antelope
+
+Data source - Quandl (https://www.quandl.com/)
+https://www.quandl.com/SF1/documentation/api-libraries
+
+Programming Language - Python (https://www.quandl.com/help/python)
+
+[Python packages required]
+1. panda
+2. scripy
+3. numpy
+4. scikit
+
+[Python Extensions]
+1. Quantlib
+http://packages.ubuntu.com/utopic/python/quantlib-python
+
+2. Python Quants
+slides of the talk Python for Quant Finance.
+http://hilpisch.com/Python_for_Quant_Finance.html#/
+
+DX Analytics Github repo.
+https://github.com/yhilpisch/dx
+
+DX Analytics Documentation.
+http://dx-analytics.com/
+
+Python Quant Platform Trials
+https://trial.quant-platform.com/
+
+Python Quant Platform Introduction & Overview
+http://quant-platform.com/Python_Quant_Platform.html
+
