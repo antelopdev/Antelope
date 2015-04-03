@@ -25,7 +25,7 @@ def verinfo():
     print("> ++ " + color.yellow + color.bold + "Antelope Studio" + color.end + " ++")
     print("> ++ Version 0.1 | Advanced Analyze System for Individual Inverstors | %s/%s/%s %s:%s:%s" % (now.month, now.day, now.year, now.hour, now.minute, now.second))
     print("> ++ Machine: %s | OS: %s | Platform: %s" % (platform.machine(), platform.release(), platform.system()))
-    print("> ++ Python %s | Compiler %s" % (platform.python_version(), platform.python_compiler()))
+    print("> ++ Python %s | iPython 1.2.1 | Compiler %s" % (platform.python_version(), platform.python_compiler()))
 
 def init_antelope():
     shell_conf()

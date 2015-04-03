@@ -1,33 +1,46 @@
-# Antelope
+Antelope Studio
 
-Data source - Quandl (https://www.quandl.com/)
-https://www.quandl.com/SF1/documentation/api-libraries
+<$> Data source - Quandl 
+{ https://www.quandl.com/SF1/documentation/api-libraries }
 
-Programming Language - Python (https://www.quandl.com/help/python)
+<$> Analysis Language - Python 3.4 
+{ https://www.quandl.com/help/python }
 
-[Python packages required]
-1. panda
-2. scripy
-3. numpy
-4. scikit
+[Packages Required]
+1. ipython
+2. numpy
+3. scipy
+4. matplotlib
+5. pandas
 
-[Python Extensions]
+[Installation]
+sudo apt-get install ipython3
+sudo apt-get install python3-numpy
+sudo apt-get install python3-scipy
+sudo apt-get install python3-matplotlib
+sudo apt-get install python3-pandas
+
+<$> Interactive Chart - Tkinter/Tk
+
+[Package Required]
+1. Tcl/Tk 8.6
+2. Tkinter
+3. tkTreeCtrl
+4. ttk
+
+<$> Extensions
+
 1. Quantlib
-http://packages.ubuntu.com/utopic/python/quantlib-python
+{ http://packages.ubuntu.com/utopic/python/quantlib-python }
 
 2. Python Quants
-slides of the talk Python for Quant Finance.
-http://hilpisch.com/Python_for_Quant_Finance.html#/
+{ http://hilpisch.com/Python_for_Quant_Finance.html#/ }
 
-DX Analytics Github repo.
-https://github.com/yhilpisch/dx
+3. DX Analytics 
+Github
+{ https://github.com/yhilpisch/dx }
 
-DX Analytics Documentation.
+Documentation
 http://dx-analytics.com/
 
-Python Quant Platform Trials
-https://trial.quant-platform.com/
-
-Python Quant Platform Introduction & Overview
-http://quant-platform.com/Python_Quant_Platform.html
 
